@@ -13,9 +13,19 @@ export class ApiError extends Error {
 }
 
 export function validateEnvironmentVariables(requiredVars: string[]): void {
+  // In Next.js client-side or during build, process.env might not be fully populated
+  // We should only enforce this check on the server runtime
+  if (typeof window !== 'undefined') return;
+
   const missing = requiredVars.filter((varName) => !process.env[varName])
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(", ")}`)
+    // Log a warning instead of throwing error during build/setup phase
+    // unless we are in production runtime
+    if (process.env.NODE_ENV === 'production') {
+       throw new Error(`Missing required environment variables: ${missing.join(", ")}`)
+    } else {
+       console.warn(`[WARN] Missing dev environment variables: ${missing.join(", ")}`)
+    }
   }
 }
 

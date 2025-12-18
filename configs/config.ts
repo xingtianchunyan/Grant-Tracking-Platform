@@ -20,5 +20,6 @@ export const config = {
   guildId: process.env.DISCORD_GUILD_ID!,
   databaseUrl: process.env.DATABASE_URL!,
   discordAppId: process.env.DISCORD_APP_ID_COMMANDER!,
-  discordPublicKey: process.env.DISCORD_PUBLIC_KEY!
+  discordPublicKey: process.env.DISCORD_PUBLIC_KEY || "", // Optional for WebSocket mode
+  siliconFlowApiKey: process.env.SILICONFLOW_API_KEY || "" // Optional for now
 }

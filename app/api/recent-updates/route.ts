@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { sql } from "@/lib/db"
+import { ActivityService } from "@/lib/services/activity.service"
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
@@ -9,37 +10,29 @@ export async function GET(req: Request) {
     const projectIdParam = url.searchParams.get("project_id")
     const projectId = projectIdParam ? Number(projectIdParam) : null
 
-    const rows = await sql/*sql*/`
-      SELECT
-        al.id,
-        al.project_id,
-        p.name AS project_name,
-        al.activity_type,
-        al.source,
-        al.title,
-        al.description,
-        al.url,
-        al.author,
-        al.timestamp
-      FROM activity_logs al
-      JOIN projects p ON p.id = al.project_id
-      ${projectId ? sql`WHERE al.project_id = ${projectId}` : sql``}
-      ORDER BY al.timestamp DESC
-      LIMIT ${limit}
-    `
+    let activities;
 
-    const data = rows.map((r: any) => ({
+    if (projectId) {
+      activities = await ActivityService.getProjectActivities(projectId, limit)
+    } else {
+      activities = await ActivityService.getRecentActivities(limit)
+    }
+
+    // Map to the specific format expected by the frontend if needed,
+    // although ActivityService returns almost the exact same shape.
+    // The service returns `ActivityLog`. Let's check if we need to transform it.
+    // Service: id, project_id, project_name, activity_type, source, title, description, url, author, timestamp, link
+    // Old Route: id, title, description, project_id, timestamp, type, project, link
+    
+    const data = activities.map((r) => ({
       id: r.id,
       title: r.title,
       description: r.description,
       project_id: r.project_id,
-      timestamp: r.timestamp,       // ISO string; format on the client if you like
-      type: r.activity_type,        // 'progress_update', 'milestone_completed', etc.
+      timestamp: r.timestamp,
+      type: r.activity_type,
       project: r.project_name,
-      // ✅ ALWAYS return a string for link
-      link: r.url && typeof r.url === "string" && r.url.trim() !== ""
-        ? r.url
-        : `/individual-project?id=${r.project_id}`,
+      link: r.link,
     }))
 
     return NextResponse.json(data)

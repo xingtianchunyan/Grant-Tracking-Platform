@@ -2,19 +2,22 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus } from "lucide-react"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, Plus, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { FormField } from "@/components/forms/form-field"
 
-export default function NewProjectPage() {
+function NewProjectForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isAutoFilled, setIsAutoFilled] = useState(false)
 
   const [formData, setFormData] = useState({
     title: "",
@@ -39,6 +42,66 @@ export default function NewProjectPage() {
     twitterLink: "",
     twitchLink: "",
   })
+
+  useEffect(() => {
+    const tempId = searchParams.get("tempId")
+
+    if (tempId) {
+      async function fetchAndAnalyze() {
+        setIsAnalyzing(true);
+        try {
+            // 1. Fetch temp message content
+            const msgRes = await fetch(`/api/discord/temp-message/${tempId}`);
+            if (!msgRes.ok) throw new Error("Failed to fetch message content");
+            const msgData = await msgRes.json();
+            const content = msgData.content;
+
+            // 2. Call AI extraction
+            const aiRes = await fetch("/api/ai/extract-project-info", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content })
+            });
+            
+            if (!aiRes.ok) throw new Error("AI extraction failed");
+            const extracted = await aiRes.json();
+
+            // 3. Populate form
+            setFormData(prev => ({
+                ...prev,
+                title: extracted.projectName || prev.title,
+                background: extracted.projectDescription || prev.background,
+                fundingRequested: extracted.fundingRequested ? String(extracted.fundingRequested) : prev.fundingRequested,
+                category: extracted.category || prev.category,
+                programType: extracted.programType || prev.programType,
+                duration: extracted.duration || prev.duration,
+                githubRepo: extracted.githubRepo || prev.githubRepo,
+                proposalLink: extracted.proposalLink || prev.proposalLink,
+                // Default fallback for required fields if AI misses them
+                creatorUsername: msgData.metadata?.author || "",
+            }));
+
+            setIsAutoFilled(true);
+            toast({
+                title: "AI Analysis Complete",
+                description: "Form has been auto-filled from the Discord message.",
+            });
+
+        } catch (error) {
+            console.error("Auto-fill error:", error);
+            toast({
+                title: "Auto-fill Failed",
+                description: "Could not automatically extract project info. Please fill manually.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsAnalyzing(false);
+        }
+      }
+
+      fetchAndAnalyze();
+    }
+  }, [searchParams, toast]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -121,7 +184,7 @@ export default function NewProjectPage() {
           </div>
 
           <div className="max-w-4xl mx-auto">
-            <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+            <Card className={`bg-card/80 backdrop-blur-sm border-border/50 ${isAutoFilled ? 'ring-2 ring-[#10c0dd]' : ''}`}>
               <CardHeader>
                 <CardTitle className="text-white text-2xl font-bold flex items-center gap-2">
                   <Plus className="w-6 h-6 text-[#10c0dd]" />
@@ -129,6 +192,8 @@ export default function NewProjectPage() {
                 </CardTitle>
                 <p className="text-muted-foreground">
                   Fill out the form below to create a new grant project. All fields marked with * are required.
+                  {isAnalyzing && <span className="text-[#10c0dd] flex items-center gap-2 mt-1"><Loader2 className="w-4 h-4 animate-spin"/> Analyzing Discord message...</span>}
+                  {!isAnalyzing && isAutoFilled && <span className="text-[#10c0dd] block mt-1">✨ Data auto-filled by AI</span>}
                 </p>
               </CardHeader>
               <CardContent>
@@ -379,5 +444,13 @@ export default function NewProjectPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function NewProjectPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NewProjectForm />
+    </Suspense>
   )
 }

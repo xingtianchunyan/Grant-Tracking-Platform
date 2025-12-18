@@ -1,6 +1,6 @@
-// app/api/projects/[id]/activity/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { ActivityService } from "@/lib/services/activity.service"
 
 function asInt(v: string | null, def = 50) {
   const n = v ? Number.parseInt(v) : def
@@ -15,45 +15,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const url = new URL(req.url)
-    const limit = asInt(url.searchParams.get("limit"), 50)
+    const limit = asInt(url.searchParams.get("limit"), 10)
 
-    const rows = await sql/*sql*/`
-      SELECT
-        al.id,
-        al.project_id,
-        p.name AS project_name,
-        al.activity_type,
-        al.source,
-        al.title,
-        al.description,
-        al.url,
-        al.author,
-        al.timestamp
-      FROM activity_logs al
-      JOIN projects p ON p.id = al.project_id
-      WHERE al.project_id = ${projectId}
-      ORDER BY al.timestamp DESC
-      LIMIT ${limit}
-    `
+    const activities = await ActivityService.getProjectActivities(projectId, limit)
 
-    // Normalize for UI (safe link fallback to project page)
-    const data = rows.map((r: any) => ({
-      id: r.id,
-      project_id: r.project_id,
-      project: r.project_name,
-      type: r.activity_type,        // e.g. 'progress_update', 'milestone_completed'
-      source: r.source,             // 'discord' | 'github' | 'manual'
-      title: r.title,
-      description: r.description,
-      author: r.author,
-      timestamp: r.timestamp,
-      link:
-        r.url && typeof r.url === "string" && r.url.trim()
-          ? r.url
-          : `/individual-project?id=${r.project_id}`,
-    }))
-
-    return NextResponse.json(data)
+    return NextResponse.json(activities)
   } catch (error) {
     console.error("Error fetching project activity:", error)
     return NextResponse.json({ error: "Failed to fetch project activity" }, { status: 500 })
@@ -79,36 +45,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const [p] = await sql/*sql*/`SELECT id FROM projects WHERE id = ${projectId}`
     if (!p) return NextResponse.json({ error: "Project not found" }, { status: 404 })
 
-    const [row] = await sql/*sql*/`
-      INSERT INTO activity_logs
-        (project_id, activity_type, source, title, description, url, author, metadata)
-      VALUES
-        (${projectId}, 'progress_update', ${source}, ${title}, ${description}, NULL, ${author}, '{}')
-      RETURNING id, project_id, activity_type, source, title, description, url, author, timestamp
-    `
+    const activity = await ActivityService.createActivity({
+      projectId,
+      activity_type: 'progress_update',
+      source,
+      title,
+      description,
+      url: null,
+      author,
+      metadata: {}
+    })
 
-    // touch project's last_activity_at
-    await sql/*sql*/`
-      UPDATE projects
-      SET last_activity_at = now(), updated_at = now()
-      WHERE id = ${projectId}
-    `
-
-    if (!row) {
-      return NextResponse.json({ error: "Failed to create activity log entry" }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      id: row.id,
-      project_id: row.project_id,
-      type: row.activity_type,
-      source: row.source,
-      title: row.title,
-      description: row.description,
-      author: row.author,
-      timestamp: row.timestamp,
-      link: `/individual-project?id=${row.project_id}`,
-    }, { status: 201 })
+    return NextResponse.json(activity, { status: 201 })
   } catch (error: any) {
     console.error("Error creating project activity:", error)
     return NextResponse.json({ error: "Failed to create project activity" }, { status: 500 })

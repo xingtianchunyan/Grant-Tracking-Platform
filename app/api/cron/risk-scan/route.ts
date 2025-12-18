@@ -2,6 +2,8 @@
 import { NextResponse, NextRequest } from "next/server"
 import { sql } from "@/lib/db"
 import { config } from "@/configs/config"
+import { ActivityService } from "@/lib/services/activity.service"
+import { IntegrationService, type GithubCommitSummary, type GithubPrSummary } from "@/lib/services/integration.service"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -14,203 +16,6 @@ function isAtLeast30DaysOld(baseDate: Date | null) {
   if (!baseDate || isNaN(baseDate.getTime())) return false
   const age = Date.now() - baseDate.getTime()
   return age >= DAYS_30_MS
-}
-
-function normalizeRepo(repo?: string | null): string | null {
-  if (!repo) return null
-  const r = repo.trim()
-  const m = r.match(/^https?:\/\/github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git|\/)?$/i)
-  if (m) return `${m[1]}/${m[2]}`
-  if (/^[^/\s]+\/[^/\s]+$/.test(r)) return r
-  return null
-}
-
-async function getDiscordActivityCount(projectId: number, sinceIso: string) {
-  const rows = await sql/*sql*/`
-    SELECT COUNT(*)::int AS cnt
-    FROM activity_logs
-    WHERE project_id = ${projectId}
-      AND source = 'discord'
-      AND "timestamp" >= ${sinceIso}
-  `
-  return (rows?.[0]?.cnt ?? 0) as number
-}
-
-// ---------- GitHub helpers ----------
-
-type GithubCommitSummary = {
-  sha: string
-  message: string | null
-  authorName: string | null
-  date: string | null
-  url: string | null
-}
-
-type GithubPrSummary = {
-  number: number
-  title: string | null
-  state: string
-  merged: boolean
-  updatedAt: string | null
-  mergedAt: string | null
-  url: string | null
-}
-
-type GithubCheck = {
-  ok: boolean
-  reason?: string
-  commitActivity?: boolean
-  pullActivity?: boolean
-  lastCommit?: GithubCommitSummary | null
-  lastMergedPr?: GithubPrSummary | null
-}
-
-async function checkGithubActivity(repo: string, sinceIso: string): Promise<GithubCheck> {
-  if (!repo || !repo.includes("/")) return { ok: false, reason: "invalid_repo_format" }
-
-  const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json",
-    "User-Agent": "risk-scan",
-  }
-  if (config.githubToken) headers.Authorization = `Bearer ${config.githubToken}`
-
-  const base = `https://api.github.com/repos/${repo}`
-
-  try {
-    const sinceDate = new Date(sinceIso)
-
-    // latest commit
-    const commitsUrl = `${base}/commits?per_page=1`
-    const cRes = await fetch(commitsUrl, { headers, cache: "no-store" })
-    if (!cRes.ok) {
-      const t = await cRes.text().catch(() => "")
-      return { ok: false, reason: `commits_check_failed:${cRes.status}:${t}` }
-    }
-    const commits = (await cRes.json()) as any[]
-    let lastCommit: GithubCommitSummary | null = null
-    let commitActivity = false
-
-    if (Array.isArray(commits) && commits.length > 0) {
-      const c = commits[0]
-      const cMsg = c?.commit?.message ?? null
-      const cDate: string | null =
-        c?.commit?.author?.date ?? c?.commit?.committer?.date ?? null
-      const cAuthor: string | null =
-        c?.commit?.author?.name ??
-        c?.author?.login ??
-        c?.commit?.committer?.name ??
-        null
-
-      lastCommit = {
-        sha: c?.sha ?? "",
-        message: cMsg,
-        authorName: cAuthor,
-        date: cDate,
-        url: c?.html_url ?? null,
-      }
-
-      if (cDate) {
-        const d = new Date(cDate)
-        commitActivity = d >= sinceDate
-      }
-    }
-
-    // latest merged PR
-    const prsUrl = `${base}/pulls?state=all&sort=updated&direction=desc&per_page=20`
-    const pRes = await fetch(prsUrl, { headers, cache: "no-store" })
-    if (!pRes.ok) {
-      const t = await pRes.text().catch(() => "")
-      return {
-        ok: false,
-        reason: `prs_check_failed:${pRes.status}:${t}`,
-        commitActivity,
-        lastCommit,
-      }
-    }
-    const pulls = (await pRes.json()) as any[]
-    let lastMergedPr: GithubPrSummary | null = null
-    let pullActivity = false
-
-    if (Array.isArray(pulls) && pulls.length > 0) {
-      const mergedPr = pulls.find((pr) => !!pr?.merged_at) ?? null
-      if (mergedPr) {
-        const mergedAt: string | null = mergedPr.merged_at ?? null
-        const updatedAt: string | null = mergedPr.updated_at ?? null
-
-        lastMergedPr = {
-          number: mergedPr.number,
-          title: mergedPr.title ?? null,
-          state: mergedPr.state ?? "closed",
-          merged: !!mergedPr.merged_at,
-          updatedAt,
-          mergedAt,
-          url: mergedPr.html_url ?? null,
-        }
-
-        const compareDateStr = mergedAt ?? updatedAt
-        if (compareDateStr) {
-          const d = new Date(compareDateStr)
-          pullActivity = d >= sinceDate
-        }
-      }
-    }
-
-    return {
-      ok: true,
-      commitActivity,
-      pullActivity,
-      lastCommit,
-      lastMergedPr,
-    }
-  } catch (e: any) {
-    return { ok: false, reason: `github_error:${e?.message || "unknown"}` }
-  }
-}
-
-// ---------- activity_logs helpers ----------
-
-async function activityExists(
-  projectId: number,
-  activity_type: string,
-  url: string | null
-): Promise<boolean> {
-  if (!url) return false
-  const rows = await sql/*sql*/`
-    SELECT 1
-    FROM activity_logs
-    WHERE project_id = ${projectId}
-      AND activity_type = ${activity_type}
-      AND url = ${url}
-    LIMIT 1
-  `
-  return rows.length > 0
-}
-
-async function insertActivityLog(entry: {
-  projectId: number
-  activity_type: string
-  source: string
-  title: string | null
-  description: string | null
-  url: string | null
-  author: string | null
-  timestamp: string | null
-}) {
-  const { projectId, activity_type, source, title, description, url, author, timestamp } = entry
-
-  await sql/*sql*/`
-    INSERT INTO activity_logs (project_id, activity_type, source, title, description, url, author, "timestamp")
-    VALUES (
-      ${projectId},
-      ${activity_type},
-      ${source},
-      ${title},
-      ${description},
-      ${url},
-      ${author},
-      ${timestamp ? new Date(timestamp) : new Date()}
-    )
-  `
 }
 
 // --- core job ---
@@ -230,6 +35,8 @@ function computeBaseDate(start_date: string | null, created_at: string | null): 
 }
 
 async function runRiskScanJob() {
+  console.log('[risk-scan] Starting scan job...');
+  
   // global 30-day window (for Discord, and as a floor for GitHub)
   const globalSince = new Date(Date.now() - DAYS_30_MS)
   const globalSinceIso = globalSince.toISOString()
@@ -296,7 +103,7 @@ async function runRiskScanJob() {
         name: p.name,
         base_date: null,
         age_days: null,
-        repo: normalizeRepo(p.github_repo),
+        repo: IntegrationService.normalizeRepo(p.github_repo),
         repo_check: "none",
         github: { reason: "invalid_or_future_start/created_at" },
         discord: { hasActivity: false, countKnown: 0 },
@@ -327,7 +134,7 @@ async function runRiskScanJob() {
       isAtLeast30DaysOld(baseDate) || hasOverdueMilestone
 
     // Discord window: last 30 days (global)
-    const discordCount = await getDiscordActivityCount(p.id, globalSinceIso)
+    const discordCount = await ActivityService.getDiscordActivityCount(p.id, globalSinceIso)
     const discordHas = discordCount > 0
 
     // Per-project "since" for GitHub:
@@ -337,7 +144,7 @@ async function runRiskScanJob() {
     )
     const sinceForGithubIso = sinceForGithub.toISOString()
 
-    const normRepo = normalizeRepo(p.github_repo)
+    const normRepo = IntegrationService.normalizeRepo(p.github_repo)
     let repo_check: "none" | "checked" | "invalid" | "error" = "none"
     let gh: { commitActivity?: boolean; pullActivity?: boolean; reason?: string } = {}
 
@@ -346,7 +153,7 @@ async function runRiskScanJob() {
       repo_check = "invalid"
       gh = { reason: "invalid_repo_format" }
     } else if (normRepo) {
-      const ghRes = await checkGithubActivity(normRepo, sinceForGithubIso)
+      const ghRes = await IntegrationService.checkGithubActivity(normRepo, sinceForGithubIso)
       if (!ghRes.ok) {
         repo_check = ghRes.reason?.startsWith("invalid_repo_format") ? "invalid" : "error"
         gh = { reason: ghRes.reason }
@@ -357,47 +164,48 @@ async function runRiskScanJob() {
           pullActivity: !!ghRes.pullActivity,
         }
 
-        // activity logs (commit) – only if it's within sinceForGithub window
-        if (
-          ghRes.lastCommit &&
-          ghRes.lastCommit.url &&
-          ghRes.commitActivity
-        ) {
-          const already = await activityExists(p.id, "commit", ghRes.lastCommit.url)
-          if (!already) {
-            await insertActivityLog({
-              projectId: p.id,
-              activity_type: "commit",
-              source: "GITHUB",
-              title: ghRes.lastCommit.message?.split("\n")[0] || "Commit",
-              description: ghRes.lastCommit.message,
-              url: ghRes.lastCommit.url,
-              author: ghRes.lastCommit.authorName,
-              timestamp: ghRes.lastCommit.date,
-            })
+        // --- SYNC COMMITS ---
+        if (ghRes.commits) {
+          for (const c of ghRes.commits) {
+             if (!c.url) continue;
+             const already = await ActivityService.activityExists(p.id, "commit", c.url)
+             if (!already) {
+               await ActivityService.createActivity({
+                 projectId: p.id,
+                 activity_type: "commit",
+                 source: "GITHUB",
+                 title: c.message?.split("\n")[0] || "Commit",
+                 description: c.message,
+                 url: c.url,
+                 author: c.authorName,
+                 timestamp: c.date,
+               })
+             }
           }
         }
 
-        // activity logs (merged PR) – only if it's within sinceForGithub window
-        if (
-          ghRes.lastMergedPr &&
-          ghRes.lastMergedPr.url &&
-          ghRes.pullActivity
-        ) {
-          const already = await activityExists(p.id, "merge", ghRes.lastMergedPr.url)
-          if (!already) {
-            await insertActivityLog({
-              projectId: p.id,
-              activity_type: "merge",
-              source: "GITHUB",
-              title: ghRes.lastMergedPr.title || `Merged PR #${ghRes.lastMergedPr.number}`,
-              description: ghRes.lastMergedPr.merged
-                ? `PR #${ghRes.lastMergedPr.number} merged`
-                : `PR #${ghRes.lastMergedPr.number} (${ghRes.lastMergedPr.state})`,
-              url: ghRes.lastMergedPr.url,
-              author: null,
-              timestamp: ghRes.lastMergedPr.mergedAt || ghRes.lastMergedPr.updatedAt,
-            })
+        // --- SYNC PRS ---
+        if (ghRes.prs) {
+          for (const pr of ghRes.prs) {
+            if (!pr.url) continue;
+            
+            const activityType = pr.merged ? "merge" : "pull_request";
+            
+            const already = await ActivityService.activityExists(p.id, activityType, pr.url)
+            if (!already) {
+               await ActivityService.createActivity({
+                 projectId: p.id,
+                 activity_type: activityType,
+                 source: "GITHUB",
+                 title: pr.title || `PR #${pr.number}`,
+                 description: pr.merged 
+                   ? `PR #${pr.number} merged` 
+                   : `PR #${pr.number} (${pr.state})`,
+                 url: pr.url,
+                 author: null,
+                 timestamp: pr.mergedAt || pr.updatedAt,
+               })
+            }
           }
         }
       }
