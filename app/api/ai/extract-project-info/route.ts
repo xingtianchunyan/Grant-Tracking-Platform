@@ -173,7 +173,7 @@ function mockExtraction(text: string) {
         fundingRequested: budget,
         category: "development",
         programType: "milestone",
-        granteeEmail: "Do not find Email",
+        granteeEmail: "fornervos@gmail.com",
         missionExpertise: "Extracted from text description",
         campaignGoals: "Extracted from text description"
     };

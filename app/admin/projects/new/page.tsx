@@ -187,7 +187,16 @@ function NewProjectForm() {
         description: `${formData.title} has been successfully created.`,
       })
 
-      router.push(`/admin/projects/${project.id}/milestones/new`)
+      if (project && project.id) {
+        router.push(`/admin/projects/${project.id}/milestones/new`)
+      } else {
+        console.error("Project created but no ID returned:", project);
+        toast({
+          title: "Redirection Error",
+          description: "Project was created but we couldn't redirect you. Please check the projects list.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",

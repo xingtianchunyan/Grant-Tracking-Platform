@@ -53,7 +53,7 @@ export default function NewMilestonePage() {
           description: "Failed to load project details.",
           variant: "destructive",
         })
-        router.push("/admin/projects")
+        router.push("/admin")
       } finally {
         setIsLoading(false)
       }

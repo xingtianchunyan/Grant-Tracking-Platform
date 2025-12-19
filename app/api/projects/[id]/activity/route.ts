@@ -7,9 +7,10 @@ function asInt(v: string | null, def = 50) {
   return Number.isFinite(n) && n > 0 ? n : def
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const projectId = Number.parseInt(params.id)
+    const { id } = await params
+    const projectId = Number.parseInt(id)
     if (!Number.isFinite(projectId)) {
       return NextResponse.json({ error: "Invalid project id" }, { status: 400 })
     }
@@ -28,9 +29,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 // POST /api/projects/:id/activity
 // Body: { title: string, description?: string, author?: string, source?: 'discord'|'manual'|'github' }
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const projectId = Number.parseInt(params.id)
+    const { id } = await params
+    const projectId = Number.parseInt(id)
     if (!Number.isFinite(projectId)) {
       return NextResponse.json({ error: "Invalid project id" }, { status: 400 })
     }

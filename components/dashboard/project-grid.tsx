@@ -85,7 +85,7 @@ export const ProjectGrid = React.memo(function ProjectGrid({ projects, milestone
             className="bg-card/80 backdrop-blur-sm border-border/50 hover:border-[#1b7382] transition-colors duration-300 group"
             style={{ borderRadius: "var(--wui-border-radius-m)", borderWidth: "1px" }}
           >
-            <Link href={`/individual-project?id=${project.id}`} className="block cursor-pointer h-full">
+            <Link href={`/admin/projects/${project.id}`} className="block cursor-pointer h-full">
               <CardContent className="p-4 md:p-6 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-3 md:mb-4">
                   <h3

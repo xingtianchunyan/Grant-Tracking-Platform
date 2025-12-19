@@ -1,19 +1,10 @@
 'use client';
-import { Suspense, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, use } from "react"
 import IndividualProjectContent from "@/components/individual-project-content"
 
-export default function IndividualProjectPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const id = searchParams.get("id")
-
-  useEffect(() => {
-    if (id) {
-      router.replace(`/admin/projects/${id}`)
-    }
-  }, [id, router])
-
+export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  
   return (
     <Suspense
       fallback={
@@ -25,7 +16,7 @@ export default function IndividualProjectPage() {
         </div>
       }
     >
-      <IndividualProjectContent />
+      <IndividualProjectContent id={id} />
     </Suspense>
   )
 }

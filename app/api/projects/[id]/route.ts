@@ -3,9 +3,14 @@ import { sql } from "@/lib/db"
 import type { Project } from "@/lib/db"
 import { parseDurationToEndDate } from "@/lib/utils"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const projectId = Number.parseInt(params.id)
+    const { id } = await params
+    const projectId = Number.parseInt(id)
+
+    if (isNaN(projectId)) {
+      return NextResponse.json({ error: "Invalid project ID" }, { status: 400 })
+    }
 
     const [project] = await sql`
       SELECT 
@@ -32,9 +37,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const projectId = Number.parseInt(params.id)
+    const { id } = await params
+    const projectId = Number.parseInt(id)
+
+    if (isNaN(projectId)) {
+      return NextResponse.json({ error: "Invalid project ID" }, { status: 400 })
+    }
     const body = await request.json()
     const { name, description, status, github_repo, discord_channel, funding_amount, start_date, end_date, duration } =
       body
@@ -67,9 +77,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const projectId = Number.parseInt(params.id)
+    const { id } = await params
+    const projectId = Number.parseInt(id)
+
+    if (isNaN(projectId)) {
+      return NextResponse.json({ error: "Invalid project ID" }, { status: 400 })
+    }
 
     await sql`DELETE FROM projects WHERE id = ${projectId}`
 

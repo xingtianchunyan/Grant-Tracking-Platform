@@ -192,7 +192,7 @@ function OtherProgramsCarousel({ currentProject, allProjects }: { currentProject
             className="bg-background/80 backdrop-blur-sm border-border/50 h-auto min-h-[140px] hover:border-[#1b7382] transition-colors cursor-pointer"
             style={{ borderRadius: "var(--wui-border-radius-s)" }}
           >
-            <Link href={`/individual-project?id=${project.id}`} className="block h-full">
+            <Link href={`/admin/projects/${project.id}`} className="block h-full">
               <CardContent className="p-4 h-full flex flex-col">
                 <h3
                   className="font-semibold text-white mb-2 break-words"
@@ -267,9 +267,9 @@ function OtherProgramsCarousel({ currentProject, allProjects }: { currentProject
 }
 
 // ---------- Page ----------
-export default function IndividualProjectContent() {
+export default function IndividualProjectContent({ id: propId }: { id?: string }) {
   const searchParams = useSearchParams()
-  const projectId = searchParams.get("id")
+  const projectId = propId || searchParams.get("id")
   const { project, milestones, isLoading, error } = useProject(projectId)
   const { projects: allProjects } = useProjects()
 

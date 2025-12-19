@@ -109,7 +109,11 @@ export class ActivityService {
       WHERE id = ${projectId}
     `
 
-    return this.normalizeLogs([row])[0]
+    if (!row) {
+      throw new Error("Failed to create activity log: No data returned")
+    }
+
+    return this.normalizeLogs([row])[0]!
   }
 
   /**
@@ -159,7 +163,7 @@ export class ActivityService {
       timestamp: r.timestamp,
       link: r.url && typeof r.url === "string" && r.url.trim()
         ? r.url
-        : `/individual-project?id=${r.project_id}`,
+        : `/admin/projects/${r.project_id}`,
     }))
   }
 }

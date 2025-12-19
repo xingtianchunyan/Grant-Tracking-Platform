@@ -116,7 +116,7 @@ export function RecentUpdates() {
           // safe link fallback (prevents <Link href={null}> crash)
           const projectId = pickProjectId(u)
           const category = getProjectCategoryById(projectsById, projectId) ?? "General"
-          const safeHref = projectId ? `/individual-project?id=${projectId}` : "/"
+          const safeHref = projectId ? `/admin/projects/${projectId}` : "/"
 
           const content = (
             <Card

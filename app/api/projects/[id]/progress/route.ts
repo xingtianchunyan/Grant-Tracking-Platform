@@ -11,15 +11,16 @@ import { config } from "@/configs/config"
  *  - Only the assignee (or an admin) can post a recent update.
  *  - Writes a row to activity_logs; does NOT update project name/description.
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id } = await params
         const auth = req.headers.get("authorization") || ""
         const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : ""
         if (!config.serviceBotToken || token !== config.serviceBotToken) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        const projectId = Number.parseInt(params.id)
+        const projectId = Number.parseInt(id)
         const { title, description = "", callerDiscordId } = await req.json()
 
         // Fetch project with assignee

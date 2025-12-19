@@ -98,15 +98,20 @@ export class ProjectService {
     const safeProgramType = program_type ? program_type.substring(0, 100) : null
     const safeDuration = duration ? duration.substring(0, 100) : null
 
-    const safeCreatorStat1 =
-      creator_stat_1_number != null
-        ? Math.min(Math.max(Number.parseInt(creator_stat_1_number), -2147483648), 2147483647)
-        : null
-    const safeCreatorStat2 =
-      creator_stat_2_number != null
-        ? Math.min(Math.max(Number.parseInt(creator_stat_2_number), -2147483648), 2147483647)
-        : null
-    const safeFundingAmount = funding_amount != null ? Number.parseFloat(funding_amount) : null
+    const parseSafeInt = (val: any) => {
+      if (val === null || val === undefined || val === "") return null;
+      const parsed = Number.parseInt(val);
+      return isNaN(parsed) ? null : Math.min(Math.max(parsed, -2147483648), 2147483647);
+    };
+
+    const safeCreatorStat1 = parseSafeInt(creator_stat_1_number);
+    const safeCreatorStat2 = parseSafeInt(creator_stat_2_number);
+
+    const safeFundingAmount = (funding_amount !== null && funding_amount !== undefined && funding_amount !== "") 
+      ? Number.parseFloat(funding_amount) 
+      : null;
+    
+    const finalFundingAmount = isNaN(safeFundingAmount as number) ? null : safeFundingAmount;
 
     // Date Logic
     let calculatedEndDate = end_date
@@ -116,6 +121,7 @@ export class ProjectService {
     }
 
     // DB Insert
+    console.log(`[ProjectService] Inserting project: ${safeName}`);
     const [project] = (await sql`
       INSERT INTO projects (
         name, description, status, github_repo, proposal_link, discord_channel,
@@ -133,14 +139,14 @@ export class ProjectService {
         ${safeGithubRepo},
         ${proposal_link},
         ${safeDiscordChannel},
-        ${safeFundingAmount},
+        ${finalFundingAmount},
         ${start_date},
         ${calculatedEndDate},
         ${safeCreatorUsername},
         ${safeGranteeEmail},
         ${safeCategory},
         ${safeProgramType},
-        ${description}, // Mapping project_background to description for simplicity based on original logic
+        ${description},
         ${mission_expertise},
         ${campaign_goals},
         ${safeCreatorStat1Name},
@@ -157,20 +163,32 @@ export class ProjectService {
       RETURNING *
     `) as Project[]
 
+    console.log(`[ProjectService] Project inserted successfully: ${project?.id}`);
+
     // Post-creation hooks (Discord resolution)
     if (project?.creator_username) {
-      const userId = await this.resolveDiscordUserIdFromUsername(project.creator_username)
-      if (userId) {
-        await sql`
-          UPDATE projects
-          SET assignee_discord_id = ${userId}, updated_at = NOW()
-          WHERE id = ${project.id}
-        `
-        ;(project as any).assignee_discord_id = userId
-      }
+      // Fire and forget or handle asynchronously to avoid blocking the main response
+      this.resolveAndAssignDiscordUser(project.id, project.creator_username).catch(err => {
+        console.error(`[ProjectService] Discord resolution failed for project ${project.id}:`, err);
+      });
     }
 
     return project
+  }
+
+  /**
+   * Internal method to resolve Discord ID and update project asynchronously.
+   */
+  private async resolveAndAssignDiscordUser(projectId: number, username: string) {
+    const userId = await this.resolveDiscordUserIdFromUsername(username)
+    if (userId) {
+      await sql`
+        UPDATE projects
+        SET assignee_discord_id = ${userId}, updated_at = NOW()
+        WHERE id = ${projectId}
+      `
+      console.log(`[ProjectService] Discord ID ${userId} assigned to project ${projectId}`);
+    }
   }
 
   /**
@@ -181,11 +199,19 @@ export class ProjectService {
     if (!username || !config.discordBotToken || !config.guildId) return null
     try {
       const q = encodeURIComponent(username.trim())
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
       const resp = await fetch(`https://discord.com/api/v10/guilds/${config.guildId}/members/search?query=${q}&limit=5`, {
         headers: { Authorization: `Bot ${config.discordBotToken}` },
         cache: "no-store",
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId);
+
       if (!resp.ok) {
+        console.warn(`[ProjectService] Discord API returned ${resp.status} for username ${username}`);
         return null
       }
       const members = (await resp.json()) as Array<{

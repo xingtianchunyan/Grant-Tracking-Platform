@@ -2,9 +2,10 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { config } from "@/configs/config"
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const projectId = Number.parseInt(params.id)
+    const { id } = await params
+    const projectId = Number.parseInt(id)
 
     const milestones = await sql`
       SELECT * FROM milestones 
@@ -18,9 +19,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const projectId = Number.parseInt(params.id)
+    const { id } = await params
+    const projectId = Number.parseInt(id)
     const body = await request.json()
     const { title, description, due_date, status = "planning", budget } = body
 
@@ -51,8 +53,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
  * Only allow status change to 'completed' via Discord (per your rule).
  * Enforce assignee ownership (or admin via DISCORD_ADMIN_USER_IDS by calling /activity-logs directly if desired).
  */
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const auth = request.headers.get("authorization") || ""
     const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : ""
 
@@ -60,7 +63,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const projectId = Number.parseInt(params.id)
+    const projectId = Number.parseInt(id)
     const body = await request.json()
     const {
       milestone_id,

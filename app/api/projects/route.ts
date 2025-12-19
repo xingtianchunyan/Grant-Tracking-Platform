@@ -14,9 +14,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log("[API] POST /api/projects - Received body:", JSON.stringify(body).slice(0, 200) + "...");
     const project = await projectService.createProject(body)
+    console.log("[API] POST /api/projects - Success:", project?.id);
     return NextResponse.json(project, { status: 201 })
   } catch (error) {
+    console.error("[API] POST /api/projects - Error:", error);
     return handleApiError(error)
   }
 }
