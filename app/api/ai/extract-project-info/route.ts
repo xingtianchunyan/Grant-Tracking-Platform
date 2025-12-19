@@ -67,8 +67,11 @@ export async function POST(req: NextRequest) {
                 - proposalLink: string (URL)
                 - programType: string ("milestone" or "program")
                 - duration: string (e.g. "3 months")
+                - granteeEmail: string (Find email in text, if NOT found, return "Do not find Email@example.com")
+                - missionExpertise: string (Infer and summarize the project's mission and the team's expertise from the context. MUST NOT be empty.)
+                - campaignGoals: string (Infer and summarize the project's campaign goals and intended impact from the context. MUST NOT be empty.)
                 
-                If a field cannot be found, leave it as null or empty string.
+                If a field cannot be found (except for granteeEmail, missionExpertise, and campaignGoals which have special instructions above), leave it as null or empty string.
                 Do not include markdown code blocks (like \`\`\`json) in the response, just the raw JSON string.`
               },
               {
@@ -169,6 +172,9 @@ function mockExtraction(text: string) {
         projectDescription: text,
         fundingRequested: budget,
         category: "development",
-        programType: "milestone"
+        programType: "milestone",
+        granteeEmail: "Do not find Email",
+        missionExpertise: "Extracted from text description",
+        campaignGoals: "Extracted from text description"
     };
 }

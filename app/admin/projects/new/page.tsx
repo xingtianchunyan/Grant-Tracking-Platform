@@ -97,6 +97,9 @@ function NewProjectForm() {
                 duration: extracted.duration || prev.duration,
                 githubRepo: extracted.githubRepo || prev.githubRepo,
                 proposalLink: extracted.proposalLink || prev.proposalLink,
+                granteeEmail: extracted.granteeEmail || prev.granteeEmail,
+                missionExpertise: extracted.missionExpertise || prev.missionExpertise,
+                campaignGoals: extracted.campaignGoals || prev.campaignGoals,
                 // 如果 AI 没有提取到作者信息，尝试从 Discord 消息元数据中获取
                 creatorUsername: msgData.metadata?.author || "",
             }));
