@@ -47,54 +47,79 @@ function NewProjectForm() {
     const tempId = searchParams.get("tempId")
 
     if (tempId) {
+      /**
+       * fetchAndAnalyze
+       * 功能描述：从 Discord 临时消息中获取内容，并调用 AI 接口提取项目信息，最后自动填充到表单中。
+       * 
+       * @async
+       * @function fetchAndAnalyze
+       * @returns {Promise<void>}
+       * @throws {Error} - 当获取消息内容或 AI 提取失败时抛出异常
+       */
       async function fetchAndAnalyze() {
+        // 设置正在分析的状态，触发 UI 上的加载动画
         setIsAnalyzing(true);
         try {
-            // 1. Fetch temp message content
+            // 步骤 1: 获取 Discord 临时消息的内容
+            // 使用从 URL 参数中获取的 tempId 进行查询
             const msgRes = await fetch(`/api/discord/temp-message/${tempId}`);
+            // 如果请求失败（如消息已过期或不存在），抛出错误
             if (!msgRes.ok) throw new Error("Failed to fetch message content");
+            
+            // 解析返回的消息数据
             const msgData = await msgRes.json();
+            // 提取消息正文内容
             const content = msgData.content;
 
-            // 2. Call AI extraction
+            // 步骤 2: 调用 AI 提取接口
+            // 将获取到的 Discord 消息内容发送给后端的 AI 处理路由
             const aiRes = await fetch("/api/ai/extract-project-info", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ content })
             });
             
-            if (!aiRes.ok) throw new Error("AI extraction failed");
+            // 获取 AI 提取出的结构化数据
             const extracted = await aiRes.json();
+            // 如果后端返回错误（如 AI 模型调用失败），则抛出具体的错误信息
+            if (!aiRes.ok) throw new Error(extracted.error || "AI extraction failed");
 
-            // 3. Populate form
+            // 步骤 3: 将 AI 提取的数据填充到表单状态中
             setFormData(prev => ({
                 ...prev,
+                // 如果 AI 提取到了对应字段，则覆盖现有值；否则保持原样
                 title: extracted.projectName || prev.title,
                 background: extracted.projectDescription || prev.background,
+                // 金额需要转换为字符串以匹配输入框类型
                 fundingRequested: extracted.fundingRequested ? String(extracted.fundingRequested) : prev.fundingRequested,
                 category: extracted.category || prev.category,
                 programType: extracted.programType || prev.programType,
                 duration: extracted.duration || prev.duration,
                 githubRepo: extracted.githubRepo || prev.githubRepo,
                 proposalLink: extracted.proposalLink || prev.proposalLink,
-                // Default fallback for required fields if AI misses them
+                // 如果 AI 没有提取到作者信息，尝试从 Discord 消息元数据中获取
                 creatorUsername: msgData.metadata?.author || "",
             }));
 
+            // 标记为已自动填充，以便在 UI 上进行视觉反馈
             setIsAutoFilled(true);
+            // 弹出成功提示
             toast({
                 title: "AI Analysis Complete",
                 description: "Form has been auto-filled from the Discord message.",
             });
 
-        } catch (error) {
+        } catch (error: any) {
+            // 记录自动填充过程中的错误
             console.error("Auto-fill error:", error);
+            // 弹出失败提示，显示具体错误原因
             toast({
                 title: "Auto-fill Failed",
-                description: "Could not automatically extract project info. Please fill manually.",
+                description: error.message || "Could not automatically extract project info. Please fill manually.",
                 variant: "destructive"
             });
         } finally {
+            // 无论成功或失败，都关闭加载状态
             setIsAnalyzing(false);
         }
       }
