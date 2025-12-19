@@ -46,8 +46,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Invalid project ID" }, { status: 400 })
     }
     const body = await request.json()
-    const { name, description, status, github_repo, discord_channel, funding_amount, start_date, end_date, duration } =
+    const { name, description, status, github_repo, discord_channel, funding_amount, funding_currency, funding_details, start_date, end_date, duration } =
       body
+
+    const safeFundingDetails = Array.isArray(funding_details) ? JSON.stringify(funding_details) : null
 
     let calculatedEndDate = end_date
     if (!end_date && duration && start_date) {
@@ -61,7 +63,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       UPDATE projects 
       SET name = ${name}, description = ${description}, status = ${status}, 
           github_repo = ${github_repo}, discord_channel = ${discord_channel}, 
-          funding_amount = ${funding_amount}, start_date = ${start_date}, 
+          funding_amount = ${funding_amount}, funding_currency = ${funding_currency},
+          funding_details = COALESCE(${safeFundingDetails}::jsonb, funding_details),
+          start_date = ${start_date}, 
           end_date = ${calculatedEndDate}, duration = ${duration}, updated_at = NOW()
       WHERE id = ${projectId}
       RETURNING *

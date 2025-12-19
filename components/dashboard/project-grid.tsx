@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { ProjectProgress } from "@/components/ui/project-progress"
-import { capitalizeStatus, formatCompactCurrency } from "@/lib/utils"
+import { capitalizeStatus, formatCompactCurrency, formatCompactFundingDetails } from "@/lib/utils"
 import type { Milestone, Project } from "@/lib/types"
 
 /** Props: pass paginated Projects and the (global or page) Milestones list */
@@ -122,7 +122,7 @@ export const ProjectGrid = React.memo(function ProjectGrid({ projects, milestone
                   <span className="text-white text-xs md:text-sm" style={{ fontFamily: "var(--font-sf-rounded)" }}>
                     Budget:{" "}
                     {project.funding_amount
-                      ? formatCompactCurrency(project.funding_amount)
+                      ? formatCompactCurrency(project.funding_amount, project.funding_currency || "CKB")
                       : "N/A"}
                   </span>
                   <span

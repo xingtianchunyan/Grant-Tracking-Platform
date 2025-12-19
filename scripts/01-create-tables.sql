@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS projects (
     github_repo VARCHAR(255),
     discord_channel VARCHAR(255),
     funding_amount DECIMAL(15, 2),
+    funding_currency VARCHAR(10) DEFAULT 'USD',
     start_date DATE,
     end_date DATE,
     assignee_discord_id TEXT,

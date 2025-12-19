@@ -18,6 +18,7 @@ interface MilestoneData {
   deadline: string
   budget: string
   status: string
+  fundingDetails: { amount: string; currency: string }[]
 }
 
 export default function NewMilestonePage() {
@@ -35,6 +36,7 @@ export default function NewMilestonePage() {
       deadline: "",
       budget: "",
       status: "Active",
+      fundingDetails: [{ amount: "", currency: "USD" }],
     },
   ])
 
@@ -77,6 +79,7 @@ export default function NewMilestonePage() {
         deadline: "",
         budget: "",
         status: "Active",
+        fundingDetails: [{ amount: "", currency: "USD" }],
       },
     ])
   }
@@ -85,6 +88,49 @@ export default function NewMilestonePage() {
     if (milestones.length > 1) {
       setMilestones((prev) => prev.filter((_, i) => i !== index))
     }
+  }
+
+  const handleMilestoneFundingChange = (mIndex: number, fIndex: number, field: "amount" | "currency", value: string) => {
+    setMilestones((prev) =>
+      prev.map((milestone, i) => {
+        if (i === mIndex) {
+          const newDetails = [...milestone.fundingDetails]
+          const existingDetail = newDetails[fIndex]
+          if (!existingDetail) return milestone
+
+          const detail = {
+            amount: field === "amount" ? value : existingDetail.amount,
+            currency: field === "currency" ? value : existingDetail.currency,
+          }
+          newDetails[fIndex] = detail
+          return { ...milestone, fundingDetails: newDetails }
+        }
+        return milestone
+      })
+    )
+  }
+
+  const addMilestoneFunding = (mIndex: number) => {
+    setMilestones((prev) => prev.map((milestone, i) => {
+      if (i === mIndex) {
+        return {
+          ...milestone,
+          fundingDetails: [...milestone.fundingDetails, { amount: "", currency: "USD" }]
+        }
+      }
+      return milestone
+    }))
+  }
+
+  const removeMilestoneFunding = (mIndex: number, fIndex: number) => {
+    setMilestones((prev) => prev.map((milestone, i) => {
+      if (i === mIndex && milestone.fundingDetails.length > 1) {
+        const newDetails = [...milestone.fundingDetails]
+        newDetails.splice(fIndex, 1)
+        return { ...milestone, fundingDetails: newDetails }
+      }
+      return milestone
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,7 +161,10 @@ export default function NewMilestonePage() {
             description: milestone?.description,
             due_date: milestone?.deadline,
             status: milestone?.status.toLowerCase(),
-            budget: milestone?.budget,
+            budget: Number.parseFloat(milestone?.budget || "0") || 0,
+            funding_details: (milestone?.fundingDetails || [])
+              .filter(d => d.amount)
+              .map(d => ({ amount: Number.parseFloat(d.amount), currency: d.currency })),
             ordinal: i + 1,
           }),
         })
@@ -236,13 +285,66 @@ export default function NewMilestonePage() {
 
                         <FormField
                           id={`budget-${index}`}
-                          label="Budget (USD)"
+                          label={`Primary Budget (${project?.funding_currency || "CKB"})`}
                           type="number"
                           value={milestone.budget}
                           onChange={(value) => handleInputChange(index, "budget", value)}
                           placeholder="8333"
                           required
                         />
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-white">Multi-Currency Allocation (Optional)</label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addMilestoneFunding(index)}
+                            className="h-7 text-xs border-[#10c0dd] text-[#10c0dd] hover:bg-[#10c0dd]/10"
+                          >
+                            <Plus className="w-3 h-3 mr-1" /> Add Currency
+                          </Button>
+                        </div>
+                        {milestone.fundingDetails.map((fDetail, fIndex) => (
+                          <div key={fIndex} className="flex gap-3 items-end">
+                            <div className="flex-1">
+                              <FormField
+                                id={`milestone-amount-${index}-${fIndex}`}
+                                label={fIndex === 0 ? "Amount" : ""}
+                                type="number"
+                                value={fDetail.amount}
+                                onChange={(value) => handleMilestoneFundingChange(index, fIndex, "amount", value)}
+                                placeholder="Amount"
+                              />
+                            </div>
+                            <div className="w-32">
+                              <FormField
+                                id={`milestone-currency-${index}-${fIndex}`}
+                                label={fIndex === 0 ? "Currency" : ""}
+                                type="select"
+                                value={fDetail.currency}
+                                onChange={(value) => handleMilestoneFundingChange(index, fIndex, "currency", value)}
+                                options={[
+                                  { value: "USD", label: "USD" },
+                                  { value: "CKB", label: "CKB" },
+                                ]}
+                              />
+                            </div>
+                            {milestone.fundingDetails.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeMilestoneFunding(index, fIndex)}
+                                className="mb-2 h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                              >
+                                <Plus className="w-4 h-4 rotate-45" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
                       </div>
 
                       <FormField

@@ -62,7 +62,9 @@ export async function POST(req: NextRequest) {
                 - projectName: string (inferred title)
                 - projectDescription: string (detailed description)
                 - category: string (One of: "development", "education", "infrastructure", "content", "research", "technology")
-                - fundingRequested: number (numeric value only)
+                - fundingRequested: number (numeric value ONLY, representing the primary total amount)
+                - fundingCurrency: string ("USD" or "CKB". The primary currency of the project.)
+                - fundingDetails: array of objects [{ amount: number, currency: string }] (Extract all mentioned funding amounts and their respective currencies. For example: if "50% USDI + 50% CKB" is mentioned with a total of 10000 USD, extract [{amount: 5000, currency: "USD"}, {amount: 500000, currency: "CKB"} if conversion is known, otherwise extract raw values mentioned).
                 - githubRepo: string (URL)
                 - proposalLink: string (URL)
                 - programType: string ("milestone" or "program")
@@ -70,6 +72,11 @@ export async function POST(req: NextRequest) {
                 - granteeEmail: string (Find email in text, if NOT found, return "fornervos@gmail.com")
                 - missionExpertise: string (Infer and summarize the project's mission and the team's expertise from the context. MUST NOT be empty.)
                 - campaignGoals: string (Infer and summarize the project's campaign goals and intended impact from the context. MUST NOT be empty.)
+                
+                IMPORTANT: Pay close attention to currency units. 
+                - If the amount is in USD, USDI, or $, the currency is "USD".
+                - If the amount is in CKB, the currency is "CKB".
+                - If multiple currencies are mentioned, return all of them in fundingDetails.
                 
                 If a field cannot be found (except for granteeEmail, missionExpertise, and campaignGoals which have special instructions above), leave it as null or empty string.
                 Do not include markdown code blocks (like \`\`\`json) in the response, just the raw JSON string.`
@@ -146,31 +153,46 @@ export async function POST(req: NextRequest) {
  * @returns {object} - 返回一个包含基本项目信息的对象
  */
 function mockExtraction(text: string) {
-    // 将文本按行分割，方便逐行处理
     const lines = text.split('\n');
     let title = "";
     let budget = 0;
+    let currency = "USD";
+    const fundingDetails: { amount: number; currency: string }[] = [];
     
-    // 遍历每一行，寻找关键词以提取信息
     for(const line of lines) {
-        // 检查是否包含 "title:" 或 "project:" 关键词（不区分大小写）
         if(line.toLowerCase().includes("title:") || line.toLowerCase().includes("project:")) {
-            // 提取冒号后的内容作为项目名称
             title = line.split(':')[1]?.trim() || "";
         }
-        // 检查是否包含 "budget:" 或 "funding:" 关键词
+        
         if(line.toLowerCase().includes("budget:") || line.toLowerCase().includes("funding:")) {
-            // 使用正则表达式匹配数字，提取预算金额
             const match = line.match(/\d+/);
-            if(match) budget = parseInt(match[0]);
+            const amount = match ? parseInt(match[0]) : 0;
+            
+            let currentCurrency = "USD";
+            if (line.toLowerCase().includes("ckb")) {
+                currentCurrency = "CKB";
+            }
+            
+            if (amount > 0) {
+                fundingDetails.push({ amount, currency: currentCurrency });
+                if (fundingDetails.length === 1) {
+                    budget = amount;
+                    currency = currentCurrency;
+                }
+            }
         }
     }
 
-    // 返回组装好的结构化对象
+    if (fundingDetails.length === 0) {
+        fundingDetails.push({ amount: budget, currency: currency });
+    }
+
     return {
         projectName: title,
         projectDescription: text,
         fundingRequested: budget,
+        fundingCurrency: currency,
+        fundingDetails: fundingDetails,
         category: "development",
         programType: "milestone",
         granteeEmail: "fornervos@gmail.com",

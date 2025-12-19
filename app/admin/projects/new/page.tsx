@@ -27,6 +27,8 @@ function NewProjectForm() {
     missionExpertise: "",
     campaignGoals: "",
     fundingRequested: "",
+    fundingCurrency: "USD",
+    fundingDetails: [{ amount: "", currency: "USD" }] as { amount: string; currency: string }[],
     githubRepo: "",
     proposalLink: "",
     websiteLinks: "",
@@ -92,6 +94,10 @@ function NewProjectForm() {
                 background: extracted.projectDescription || prev.background,
                 // 金额需要转换为字符串以匹配输入框类型
                 fundingRequested: extracted.fundingRequested ? String(extracted.fundingRequested) : prev.fundingRequested,
+                fundingCurrency: extracted.fundingCurrency || prev.fundingCurrency,
+                fundingDetails: extracted.fundingDetails && extracted.fundingDetails.length > 0 
+                  ? extracted.fundingDetails.map((d: any) => ({ amount: String(d.amount), currency: d.currency }))
+                  : [{ amount: extracted.fundingRequested ? String(extracted.fundingRequested) : "", currency: extracted.fundingCurrency || "USD" }],
                 category: extracted.category || prev.category,
                 programType: extracted.programType || prev.programType,
                 duration: extracted.duration || prev.duration,
@@ -138,6 +144,37 @@ function NewProjectForm() {
     }))
   }
 
+  const handleFundingDetailChange = (index: number, field: "amount" | "currency", value: string) => {
+    setFormData((prev) => {
+      const newDetails = [...prev.fundingDetails]
+      const existingDetail = newDetails[index]
+      if (!existingDetail) return prev
+
+      const detail = {
+        amount: field === "amount" ? value : existingDetail.amount,
+        currency: field === "currency" ? value : existingDetail.currency,
+      }
+      newDetails[index] = detail
+      return { ...prev, fundingDetails: newDetails }
+    })
+  }
+
+  const addFundingDetail = () => {
+    setFormData((prev) => ({
+      ...prev,
+      fundingDetails: [...prev.fundingDetails, { amount: "", currency: "USD" }],
+    }))
+  }
+
+  const removeFundingDetail = (index: number) => {
+    setFormData((prev) => {
+      if (prev.fundingDetails.length <= 1) return prev
+      const newDetails = [...prev.fundingDetails]
+      newDetails.splice(index, 1)
+      return { ...prev, fundingDetails: newDetails }
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -155,6 +192,10 @@ function NewProjectForm() {
           proposal_link: formData.proposalLink,
           discord_channel: formData.creatorUsername,
           funding_amount: Number.parseFloat(formData.fundingRequested) || 0,
+          funding_currency: formData.fundingCurrency,
+          funding_details: formData.fundingDetails
+            .filter(d => d.amount)
+            .map(d => ({ amount: Number.parseFloat(d.amount), currency: d.currency })),
           start_date: new Date().toISOString().split("T")[0],
           end_date: null,
           creator_username: formData.creatorUsername,
@@ -298,26 +339,70 @@ function NewProjectForm() {
                     required
                   />
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      id="fundingRequested"
-                      label="Budget"
-                      type="number"
-                      value={formData.fundingRequested}
-                      onChange={(value) => handleInputChange("fundingRequested", value)}
-                      placeholder="25000"
-                      required
-                    />
-
-                    <FormField
-                      id="duration"
-                      label="Duration"
-                      value={formData.duration}
-                      onChange={(value) => handleInputChange("duration", value)}
-                      placeholder="e.g., 1 year, 6 months, 3 weeks"
-                      required
-                    />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-white font-medium">Budget & Funding *</label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addFundingDetail}
+                        className="h-8 border-[#10c0dd] text-[#10c0dd] hover:bg-[#10c0dd]/10"
+                      >
+                        <Plus className="w-4 h-4 mr-1" /> Add Currency
+                      </Button>
+                    </div>
+                    
+                    {formData.fundingDetails.map((detail, index) => (
+                      <div key={index} className="flex gap-4 items-end">
+                        <div className="flex-1">
+                          <FormField
+                            id={`fundingAmount-${index}`}
+                            label={index === 0 ? "Amount" : ""}
+                            type="number"
+                            value={detail.amount}
+                            onChange={(value) => handleFundingDetailChange(index, "amount", value)}
+                            placeholder="e.g. 25000"
+                            required
+                          />
+                        </div>
+                        <div className="w-32">
+                          <FormField
+                            id={`fundingCurrency-${index}`}
+                            label={index === 0 ? "Currency" : ""}
+                            type="select"
+                            value={detail.currency}
+                            onChange={(value) => handleFundingDetailChange(index, "currency", value)}
+                            options={[
+                              { value: "USD", label: "USD" },
+                              { value: "CKB", label: "CKB" },
+                            ]}
+                            required
+                          />
+                        </div>
+                        {formData.fundingDetails.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFundingDetail(index)}
+                            className="mb-2 text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                          >
+                            <Plus className="w-4 h-4 rotate-45" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
+
+                  <FormField
+                    id="duration"
+                    label="Duration"
+                    value={formData.duration}
+                    onChange={(value) => handleInputChange("duration", value)}
+                    placeholder="e.g., 1 year, 6 months, 3 weeks"
+                    required
+                  />
 
                   <FormField
                     id="background"

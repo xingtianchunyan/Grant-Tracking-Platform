@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card"
 import type { Project } from "@/lib/types"
-import { formatDate } from "@/lib/utils"
+import { formatDate, formatFundingDetails } from "@/lib/utils"
 
 interface ProjectStatsProps {
   project: Project
@@ -16,7 +16,7 @@ export function ProjectStats({ project }: ProjectStatsProps) {
         <CardContent className="p-4 text-center">
           <h3 className="text-sm text-muted-foreground mb-1">Budget</h3>
           <p className="text-lg md:text-xl font-bold text-white">
-            {project.funding_amount ? `${Math.floor(project.funding_amount).toLocaleString("en-US")} CKB` : "TBD"}
+            {formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "CKB")}
           </p>
         </CardContent>
       </Card>

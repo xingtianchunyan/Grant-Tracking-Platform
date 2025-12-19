@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCompactCurrency, capitalizeStatus } from "@/lib/utils"
+import { formatCompactCurrency, capitalizeStatus, formatCompactFundingDetails } from "@/lib/utils"
 import type { Project, Milestone } from "@/lib/types"
 
 interface ProjectTableProps {
@@ -137,7 +137,7 @@ export const ProjectTable = React.memo(function ProjectTable({
 
                   <TableCell className="text-muted-foreground">
                     {project.funding_amount
-                      ? formatCompactCurrency(project.funding_amount)
+                      ? formatCompactCurrency(project.funding_amount, project.funding_currency || "CKB")
                       : "N/A"}
                   </TableCell>
 

@@ -18,9 +18,12 @@ import {
   getOverdueMessage,
   shouldShowProgressBar,
   formatCompactCurrency,
+  formatFundingDetails,
+  formatCompactFundingDetails,
 } from "@/lib/utils"
 import { useProject } from "@/hooks/use-project"
 import { useProjects } from "@/hooks/use-projects"
+import type { Project, Milestone, FundingDetail } from "@/lib/types"
 
 // ---------- Activity types / helpers ----------
 type Activity = {
@@ -52,47 +55,6 @@ function relTime(iso: string) {
   if (h < 24) return `${h}h ago`
   const days = Math.floor(h / 24)
   return `${days}d ago`
-}
-
-// ---------- Project types ----------
-interface Project {
-  id: number
-  name: string
-  description: string
-  status: string
-  category: string
-  funding_amount: number
-  duration: string
-  project_background: string
-  mission_expertise: string
-  campaign_goals: string
-  creator_stat_1_name: string
-  creator_stat_1_number: number
-  creator_stat_2_name: string
-  creator_stat_2_number: number
-  youtube_link: string
-  tiktok_link: string
-  twitter_link: string
-  twitch_link: string
-  total_milestones: number
-  completed_milestones: number
-  progress_percentage: number
-  start_date: string
-  end_date: string
-  github_repo?: string
-  proposal_link?: string
-}
-
-interface Milestone {
-  id: number
-  ordinal: number
-  title: string
-  description: string
-  status: string
-  budget: number
-  due_date: string
-  completion_date: string
-  progress?: number
 }
 
 // ---------- Recent Updates list (cards -> open popup on click) ----------
@@ -219,7 +181,7 @@ function OtherProgramsCarousel({ currentProject, allProjects }: { currentProject
                     {capitalizeStatus(project.status)}
                   </Badge>
                   <span className="text-sm font-semibold text-white">
-                    {project.funding_amount ? formatCompactCurrency(project.funding_amount) : "TBD"}
+                    {formatCompactFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "CKB")}
                   </span>
                 </div>
               </CardContent>
@@ -347,13 +309,15 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
 
   const handleMilestoneClick = (milestoneId: number) => {
     const milestone = milestones.find((m) => m.id === milestoneId)
-    if (milestone) {
+    if (milestone && project) {
       const mappedMilestone = {
         ...milestone,
         status: milestone.status === "completed" ? "complete" : milestone.status,
-        budget: milestone.budget
-          ? `${milestone.budget.toLocaleString("en-US", { maximumFractionDigits: 0 })} CKB`
-          : "TBD",
+        budget: formatFundingDetails(
+          milestone.funding_details,
+          milestone.budget,
+          project.funding_currency || "CKB"
+        ),
         dueDate: milestone.due_date ? formatDate(milestone.due_date) : undefined,
         completionDate: milestone.completion_date ? formatDate(milestone.completion_date) : undefined,
       }
@@ -495,9 +459,7 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                       {project.completed_milestones} of {project.total_milestones} milestones completed
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {project.funding_amount
-                        ? `${project.funding_amount.toLocaleString("en-US", { maximumFractionDigits: 0 })} CKB allocated`
-                        : "Budget TBD"}
+                      {formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "CKB")} allocated
                     </p>
                   </div>
                 </CardContent>
@@ -512,9 +474,7 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                   <CardContent className="p-4 text-center">
                     <h3 className="text-sm text-muted-foreground mb-1">Budget</h3>
                     <p className="text-lg md:text-xl font-bold text-white">
-                      {project.funding_amount
-                        ? `${project.funding_amount.toLocaleString("en-US", { maximumFractionDigits: 0 })} CKB`
-                        : "TBD"}
+                      {formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "CKB")}
                     </p>
                   </CardContent>
                 </Card>
@@ -708,9 +668,7 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                               <div className="flex items-center justify-between mt-1">
                                 <p className="text-xs text-muted-foreground font-bold">
                                   Budget:{" "}
-                                  {milestone.budget
-                                    ? `${milestone.budget.toLocaleString("en-US", { maximumFractionDigits: 0 })} CKB`
-                                    : "TBD"}
+                                  {formatFundingDetails(milestone.funding_details, milestone.budget, project.funding_currency || "CKB")}
                                 </p>
                                 {milestone.status !== "completed" && milestone.due_date && (
                                   <p className="text-xs text-muted-foreground font-bold">
@@ -1005,9 +963,7 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                               <div className="flex items-center justify-between mt-1">
                                 <p className="text-xs text-muted-foreground font-bold">
                                   Budget:{" "}
-                                  {milestone.budget
-                                    ? `${milestone.budget.toLocaleString("en-US", { maximumFractionDigits: 0 })} CKB`
-                                    : "TBD"}
+                                  {formatFundingDetails(milestone.funding_details, milestone.budget, project.funding_currency || "CKB")}
                                 </p>
                                 {milestone.status !== "completed" && milestone.due_date && (
                                   <p className="text-xs text-muted-foreground font-bold">

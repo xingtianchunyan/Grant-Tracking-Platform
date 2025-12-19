@@ -1,5 +1,5 @@
 "use client"
-import { CheckCircle, Clock, AlertTriangle, FileText } from "lucide-react"
+import { CheckCircle, Clock, AlertTriangle, FileText, DollarSign, Calendar } from "lucide-react"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { OverdueAlert } from "@/components/ui/overdue-alert"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"

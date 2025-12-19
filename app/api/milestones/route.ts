@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { project_id, title, description, due_date, status, budget, ordinal } = body
+    const { project_id, title, description, due_date, status, budget, ordinal, funding_details } = body
 
     validateRequired({ project_id, title, due_date })
     validateNumber(project_id, "project_id", { min: 1 })
@@ -52,6 +52,8 @@ export async function POST(request: NextRequest) {
     if (budget !== null && budget !== undefined) {
       validateNumber(budget, "budget", { min: 0 })
     }
+
+    const safeFundingDetails = Array.isArray(funding_details) ? JSON.stringify(funding_details) : '[]'
 
     const finalOrdinal =
       ordinal ||
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
     )
 
     const [milestone] = (await sql`
-      INSERT INTO milestones (project_id, title, description, due_date, status, budget, ordinal)
+      INSERT INTO milestones (project_id, title, description, due_date, status, budget, funding_details, ordinal)
       VALUES (
         ${project_id}, 
         ${title}, 
@@ -74,6 +76,7 @@ export async function POST(request: NextRequest) {
         ${due_date}, 
         ${status || "pending"}, 
         ${budget}, 
+        ${safeFundingDetails},
         ${finalOrdinal}
       )
       RETURNING *

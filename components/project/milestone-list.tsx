@@ -5,15 +5,16 @@ import { Badge } from "@/components/ui/badge"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { OverdueAlert } from "@/components/ui/overdue-alert"
 import { ProjectProgress } from "@/components/ui/project-progress"
-import { getOverdueMessage, shouldShowProgressBar, formatDate } from "@/lib/utils"
+import { getOverdueMessage, shouldShowProgressBar, formatDate, formatFundingDetails } from "@/lib/utils"
 import type { Milestone } from "@/lib/types"
 
 interface MilestoneListProps {
   milestones: Milestone[]
   onMilestoneClick: (milestoneId: number) => void
+  fundingCurrency?: string
 }
 
-export function MilestoneList({ milestones, onMilestoneClick }: MilestoneListProps) {
+export function MilestoneList({ milestones, onMilestoneClick, fundingCurrency = "CKB" }: MilestoneListProps) {
   if (milestones.length === 0) {
     return (
       <div className="text-center py-4">
@@ -69,10 +70,7 @@ export function MilestoneList({ milestones, onMilestoneClick }: MilestoneListPro
 
             <div className="flex items-center justify-between mt-1">
               <p className="text-xs text-muted-foreground font-bold">
-                Budget:{" "}
-                {milestone.budget
-                  ? `${milestone.budget.toLocaleString("en-US", { maximumFractionDigits: 0 })} CKB`
-                  : "TBD"}
+                Budget: {formatFundingDetails(milestone.funding_details, milestone.budget, fundingCurrency)}
               </p>
               {milestone.status !== "completed" && milestone.due_date && (
                 <p className="text-xs text-muted-foreground font-bold">Due: {formatDate(milestone.due_date)}</p>

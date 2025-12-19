@@ -1,7 +1,4 @@
 import { config } from "@/configs/config"
-import fetch from "node-fetch"
-
-
 async function run() {
   const res = await fetch(`${config.backendUrl}/api/cron/risk-scan`, {
     method: "POST",

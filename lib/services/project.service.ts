@@ -68,6 +68,8 @@ export class ProjectService {
       twitch_link,
       website_links,
       duration,
+      funding_currency,
+      funding_details,
     } = data
 
     // Validation
@@ -81,6 +83,7 @@ export class ProjectService {
     validateStringLength(category, "category", 100)
     validateStringLength(program_type, "program_type", 100)
     validateStringLength(duration, "duration", 100)
+    validateStringLength(funding_currency, "funding_currency", 10)
     validateStringLength(youtube_link, "youtube_link", 500)
     validateStringLength(tiktok_link, "tiktok_link", 500)
     validateStringLength(twitter_link, "twitter_link", 500)
@@ -97,6 +100,8 @@ export class ProjectService {
     const safeCategory = category ? category.substring(0, 100) : null
     const safeProgramType = program_type ? program_type.substring(0, 100) : null
     const safeDuration = duration ? duration.substring(0, 100) : null
+    const safeFundingCurrency = funding_currency ? funding_currency.substring(0, 10) : 'USD'
+    const safeFundingDetails = Array.isArray(funding_details) ? JSON.stringify(funding_details) : '[]'
 
     const parseSafeInt = (val: any) => {
       if (val === null || val === undefined || val === "") return null;
@@ -125,7 +130,7 @@ export class ProjectService {
     const [project] = (await sql`
       INSERT INTO projects (
         name, description, status, github_repo, proposal_link, discord_channel,
-        funding_amount, start_date, end_date,
+        funding_amount, funding_currency, funding_details, start_date, end_date,
         creator_username, grantee_email, category, program_type,
         project_background, mission_expertise, campaign_goals,
         creator_stat_1_name, creator_stat_1_number, creator_stat_2_name, creator_stat_2_number,
@@ -140,6 +145,8 @@ export class ProjectService {
         ${proposal_link},
         ${safeDiscordChannel},
         ${finalFundingAmount},
+        ${safeFundingCurrency},
+        ${safeFundingDetails},
         ${start_date},
         ${calculatedEndDate},
         ${safeCreatorUsername},

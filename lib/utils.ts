@@ -19,23 +19,79 @@ export function calculateProgress(completedMilestones: number, totalMilestones: 
   return Math.round((completedMilestones / totalMilestones) * 100)
 }
 
-export function formatCurrency(amount: number | string | null | undefined): string {
+export function formatCurrency(amount: number | string | null | undefined, currency: string = "CKB"): string {
   const numAmount = typeof amount === "string" ? Number.parseFloat(amount) : Number(amount)
   if (isNaN(numAmount) || numAmount === null || numAmount === undefined) {
-    return "0 CKB"
+    return `0 ${currency}`
   }
-  return `${Math.floor(numAmount).toLocaleString("en-US")} CKB`
+  return `${Math.floor(numAmount).toLocaleString("en-US")} ${currency}`
 }
 
-export function formatCompactCurrency(amount: number | string | null | undefined): string {
+export function formatCompactCurrency(amount: number | string | null | undefined, currency: string = "CKB"): string {
   const numAmount = typeof amount === "string" ? Number.parseFloat(amount) : Number(amount)
   if (isNaN(numAmount) || numAmount === null || numAmount === undefined) {
-    return "0 CKB"
+    return `0 ${currency}`
   }
-  if (numAmount >= 1_000_000_000) return `${(numAmount / 1_000_000_000).toFixed(1)}B CKB`
-  if (numAmount >= 1_000_000) return `${(numAmount / 1_000_000).toFixed(1)}M CKB`
-  if (numAmount >= 1_000) return `${(numAmount / 1_000).toFixed(0)}K CKB`
-  return `${numAmount.toFixed(0)} CKB`
+  if (numAmount >= 1_000_000_000) return `${(numAmount / 1_000_000_000).toFixed(1)}B ${currency}`
+  if (numAmount >= 1_000_000) return `${(numAmount / 1_000_000).toFixed(1)}M ${currency}`
+  if (numAmount >= 1_000) return `${(numAmount / 1_000).toFixed(0)}K ${currency}`
+  return `${numAmount.toFixed(0)} ${currency}`
+}
+
+export function formatFundingDetails(details: any[] | null | undefined, fallbackAmount?: number, fallbackCurrency?: string): string {
+  if (details && Array.isArray(details) && details.length > 0) {
+    // Group by currency and sum amounts
+    const grouped = details.reduce((acc: Record<string, number>, d) => {
+      let currency = d.currency || "USD"
+      // Normalize USDI to USD
+      if (currency === "USDI") currency = "USD"
+      acc[currency] = (acc[currency] || 0) + Number(d.amount)
+      return acc
+    }, {})
+
+    const entries = Object.entries(grouped)
+    const firstEntry = entries[0]
+    if (entries.length === 1 && firstEntry) {
+      const [currency, amount] = firstEntry
+      return formatCurrency(amount, currency)
+    }
+
+    return entries
+      .map(([currency, amount]) => `${Math.floor(Number(amount)).toLocaleString("en-US")} ${currency}`)
+      .join(" + ")
+  }
+  if (fallbackAmount !== undefined) {
+    return formatCurrency(fallbackAmount, fallbackCurrency || "CKB")
+  }
+  return "TBD"
+}
+
+export function formatCompactFundingDetails(details: any[] | null | undefined, fallbackAmount?: number, fallbackCurrency?: string): string {
+  if (details && Array.isArray(details) && details.length > 0) {
+    // Group by currency and sum amounts
+    const grouped = details.reduce((acc: Record<string, number>, d) => {
+      let currency = d.currency || "USD"
+      // Normalize USDI to USD
+      if (currency === "USDI") currency = "USD"
+      acc[currency] = (acc[currency] || 0) + Number(d.amount)
+      return acc
+    }, {})
+
+    const entries = Object.entries(grouped)
+    const firstEntry = entries[0]
+    if (entries.length === 1 && firstEntry) {
+      const [currency, amount] = firstEntry
+      return formatCompactCurrency(amount, currency)
+    }
+
+    return entries
+      .map(([currency, amount]) => formatCompactCurrency(amount, currency))
+      .join(" + ")
+  }
+  if (fallbackAmount !== undefined) {
+    return formatCompactCurrency(fallbackAmount, fallbackCurrency || "CKB")
+  }
+  return "TBD"
 }
 
 /**

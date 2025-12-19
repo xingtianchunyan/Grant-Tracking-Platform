@@ -24,10 +24,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params
     const projectId = Number.parseInt(id)
     const body = await request.json()
-    const { title, description, due_date, status = "planning", budget } = body
+    const { title, description, due_date, status = "planning", budget, funding_details } = body
+
+    const safeFundingDetails = Array.isArray(funding_details) ? JSON.stringify(funding_details) : '[]'
 
     const [milestone] = await sql`
-      INSERT INTO milestones (project_id, title, description, due_date, status, budget, ordinal)
+      INSERT INTO milestones (project_id, title, description, due_date, status, budget, funding_details, ordinal)
       VALUES (
         ${projectId}, 
         ${title}, 
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         ${due_date}, 
         ${status}, 
         ${budget}, 
+        ${safeFundingDetails},
         (SELECT COALESCE(MAX(ordinal), 0) + 1 FROM milestones WHERE project_id = ${projectId})
       )
       RETURNING *

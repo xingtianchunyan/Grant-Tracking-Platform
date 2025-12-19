@@ -1,3 +1,8 @@
+export interface FundingDetail {
+  readonly amount: number
+  readonly currency: string
+}
+
 // Core domain types
 export interface Project {  
   readonly id: number
@@ -9,6 +14,8 @@ export interface Project {
   readonly creator_username?: string
   readonly assignee_discord_id?: string
   readonly funding_amount?: number
+  readonly funding_currency?: string
+  readonly funding_details?: FundingDetail[]
   readonly start_date?: string
   readonly end_date: string
   readonly created_at: string
@@ -46,6 +53,7 @@ export interface Milestone {
   readonly ordinal: number
   readonly title: string
   readonly budget: number
+  readonly funding_details?: FundingDetail[]
   readonly description: string
   readonly due_date: string
   readonly progress?: number
