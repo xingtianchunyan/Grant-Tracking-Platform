@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
                 - proposalLink: string (URL)
                 - programType: string ("milestone" or "program")
                 - duration: string (e.g. "3 months")
-                - granteeEmail: string (Find email in text, if NOT found, return "DoNotFindEmail@example.com")
+                - granteeEmail: string (Find email in text, if NOT found, return "fornervos@gmail.com")
                 - missionExpertise: string (Infer and summarize the project's mission and the team's expertise from the context. MUST NOT be empty.)
                 - campaignGoals: string (Infer and summarize the project's campaign goals and intended impact from the context. MUST NOT be empty.)
                 
