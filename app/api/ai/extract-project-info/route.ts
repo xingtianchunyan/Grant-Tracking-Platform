@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
     
     // 初始化中止控制器，用于设置请求超时
     const controller = new AbortController();
-    // 设置 30 秒超时时间，超时后会中止 fetch 请求
-    const timeoutId = setTimeout(() => controller.abort(), 30000); 
+    // 设置 60 秒超时时间，超时后会中止 fetch 请求，对于复杂的里程碑提取可能需要更长时间
+    const timeoutId = setTimeout(() => controller.abort(), 60000); 
 
     let response;
     try {
@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
                 - granteeEmail: string (Find email in text, if NOT found, return "fornervos@gmail.com")
                 - missionExpertise: string (Infer and summarize the project's mission and the team's expertise from the context. MUST NOT be empty.)
                 - campaignGoals: string (Infer and summarize the project's campaign goals and intended impact from the context. MUST NOT be empty.)
+                - milestones: array of objects [{ title: string, description: string, deadline: string (YYYY-MM-DD), budget: number, fundingDetails: [{ amount: number, currency: string }] }] (Extract all milestones mentioned in the text. For each milestone, extract its title, description, estimated deadline, and budget. If a budget has multiple currencies, include them in fundingDetails.)
                 
                 IMPORTANT: Pay close attention to currency units. 
                 - If the amount is in USD, USDI, or $, the currency is "USD".
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
                 - If multiple currencies are mentioned, return all of them in fundingDetails.
                 
                 If a field cannot be found (except for granteeEmail, missionExpertise, and campaignGoals which have special instructions above), leave it as null or empty string.
+                If milestones are not found, return an empty array.
                 Do not include markdown code blocks (like \`\`\`json) in the response, just the raw JSON string.`
               },
               {
@@ -197,6 +199,15 @@ function mockExtraction(text: string) {
         programType: "milestone",
         granteeEmail: "fornervos@gmail.com",
         missionExpertise: "Extracted from text description",
-        campaignGoals: "Extracted from text description"
+        campaignGoals: "Extracted from text description",
+        milestones: [
+            {
+                title: "Milestone 1",
+                description: "Initial development and setup",
+                deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                budget: budget,
+                fundingDetails: fundingDetails
+            }
+        ]
     };
 }

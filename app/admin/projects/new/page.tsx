@@ -229,7 +229,9 @@ function NewProjectForm() {
       })
 
       if (project && project.id) {
-        router.push(`/admin/projects/${project.id}/milestones/new`)
+        const tempId = searchParams.get("tempId")
+        const redirectUrl = `/admin/projects/${project.id}/milestones/new${tempId ? `?tempId=${tempId}` : ""}`
+        router.push(redirectUrl)
       } else {
         console.error("Project created but no ID returned:", project);
         toast({

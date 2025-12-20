@@ -3,8 +3,8 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
-import { ArrowLeft, Plus, Calendar, Trash2 } from "lucide-react"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
+import { ArrowLeft, Plus, Calendar, Trash2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
@@ -24,10 +24,14 @@ interface MilestoneData {
 export default function NewMilestonePage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [project, setProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isAutoFilled, setIsAutoFilled] = useState(false)
+  const [canRetry, setCanRetry] = useState(false)
 
   const [milestones, setMilestones] = useState<MilestoneData[]>([
     {
@@ -65,6 +69,67 @@ export default function NewMilestonePage() {
       fetchProject()
     }
   }, [params.id, router, toast])
+
+  const analyzeMilestones = async () => {
+    const tempId = searchParams.get("tempId")
+    if (!tempId) return
+
+    setIsAnalyzing(true)
+    setCanRetry(false)
+    try {
+      const msgRes = await fetch(`/api/discord/temp-message/${tempId}`)
+      if (!msgRes.ok) throw new Error("Failed to fetch message content")
+      const msgData = await msgRes.json()
+      const content = msgData.content
+
+      const aiRes = await fetch("/api/ai/extract-project-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      })
+      const extracted = await aiRes.json()
+      if (!aiRes.ok) throw new Error(extracted.error || "AI extraction failed")
+
+      if (extracted.milestones && Array.isArray(extracted.milestones) && extracted.milestones.length > 0) {
+        const mappedMilestones: MilestoneData[] = extracted.milestones.map((m: any) => ({
+          title: m.title || "",
+          description: m.description || "",
+          deadline: m.deadline || "",
+          budget: m.budget ? String(m.budget) : "",
+          status: "Active",
+          fundingDetails:
+            m.fundingDetails && m.fundingDetails.length > 0
+              ? m.fundingDetails.map((d: any) => ({
+                  amount: String(d.amount),
+                  currency: d.currency || "USD",
+                }))
+              : [{ amount: m.budget ? String(m.budget) : "", currency: "USD" }],
+        }))
+        setMilestones(mappedMilestones)
+        setIsAutoFilled(true)
+        toast({
+          title: "AI Analysis Complete",
+          description: `Extracted ${mappedMilestones.length} milestones from the proposal.`,
+        })
+      }
+    } catch (error: any) {
+      console.error("Milestone auto-fill error:", error)
+      setCanRetry(true)
+      toast({
+        title: "Auto-fill Failed",
+        description: error.message || "Could not extract milestones. Please fill manually.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  useEffect(() => {
+    if (searchParams.get("tempId")) {
+      analyzeMilestones()
+    }
+  }, [searchParams, toast])
 
   const handleInputChange = (index: number, field: keyof MilestoneData, value: string) => {
     setMilestones((prev) => prev.map((milestone, i) => (i === index ? { ...milestone, [field]: value } : milestone)))
@@ -244,15 +309,37 @@ export default function NewMilestonePage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+            <Card className={`bg-card/80 backdrop-blur-sm border-border/50 ${isAutoFilled ? "ring-2 ring-[#10c0dd]" : ""}`}>
               <CardHeader>
                 <CardTitle className="text-white text-2xl font-bold flex items-center gap-2">
                   <Plus className="w-6 h-6 text-[#10c0dd]" />
                   Create Milestones
                 </CardTitle>
-                <p className="text-muted-foreground">
-                  Add multiple milestones to track progress for this project. All fields marked with * are required.
-                </p>
+                <div className="text-muted-foreground">
+                  <p>Add multiple milestones to track progress for this project. All fields marked with * are required.</p>
+                  {isAnalyzing && (
+                    <span className="text-[#10c0dd] flex items-center gap-2 mt-1">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Analyzing proposal for milestones...
+                    </span>
+                  )}
+                  {!isAnalyzing && isAutoFilled && (
+                    <span className="text-[#10c0dd] block mt-1">✨ Milestones auto-filled by AI</span>
+                  )}
+                  {!isAnalyzing && canRetry && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-red-400 text-sm">AI analysis failed or timed out.</span>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={analyzeMilestones}
+                        className="h-7 px-2 text-xs border-[#10c0dd] text-[#10c0dd] hover:bg-[#10c0dd]/10"
+                      >
+                        Retry AI Analysis
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
