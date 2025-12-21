@@ -137,7 +137,7 @@ export const ProjectTable = React.memo(function ProjectTable({
 
                   <TableCell className="text-muted-foreground">
                     {project.funding_amount
-                      ? formatCompactCurrency(project.funding_amount, project.funding_currency || "CKB")
+                      ? formatCompactCurrency(project.funding_amount, project.funding_currency || "USD")
                       : "N/A"}
                   </TableCell>
 

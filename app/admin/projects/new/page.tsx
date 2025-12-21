@@ -354,7 +354,23 @@ function NewProjectForm() {
                         <Plus className="w-4 h-4 mr-1" /> Add Currency
                       </Button>
                     </div>
+
+                    <div className="p-4 border border-[#10c0dd]/30 rounded-lg bg-[#10c0dd]/5 mb-4">
+                      <FormField
+                        id="fundingRequested"
+                        label="Total Budget / Funding (USD) *"
+                        type="number"
+                        value={formData.fundingRequested}
+                        onChange={(value) => handleInputChange("fundingRequested", value)}
+                        placeholder="Total project budget in USD (e.g. 2000)"
+                        required
+                        helpText="The total budget for the project in USD. This is the primary amount displayed on project cards and the homepage."
+                      />
+                    </div>
                     
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Breakdown of funding by currency (USD/CKB):
+                    </div>
                     {formData.fundingDetails.map((detail, index) => (
                       <div key={index} className="flex gap-4 items-end">
                         <div className="flex-1">

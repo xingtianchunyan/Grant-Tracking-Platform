@@ -459,7 +459,10 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                       {project.completed_milestones} of {project.total_milestones} milestones completed
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "CKB")} allocated
+                      {project.funding_amount
+                        ? formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "USD")
+                        : "TBD"}{" "}
+                      allocated
                     </p>
                   </div>
                 </CardContent>
@@ -474,7 +477,9 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                   <CardContent className="p-4 text-center">
                     <h3 className="text-sm text-muted-foreground mb-1">Budget</h3>
                     <p className="text-lg md:text-xl font-bold text-white">
-                      {formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "CKB")}
+                      {project.funding_amount
+                        ? formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "USD")
+                        : "TBD"}
                     </p>
                   </CardContent>
                 </Card>

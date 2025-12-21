@@ -23,7 +23,7 @@ export const StatsCards = memo(function StatsCards({ projects }: StatsCardsProps
         processDetail(toNumberSafe(detail.amount), detail.currency || "USD")
       })
     } else if (project.funding_amount) {
-      processDetail(toNumberSafe(project.funding_amount), project.funding_currency || "CKB")
+      processDetail(toNumberSafe(project.funding_amount), project.funding_currency || "USD")
     }
     return totals
   }, {} as Record<string, number>)
@@ -31,7 +31,7 @@ export const StatsCards = memo(function StatsCards({ projects }: StatsCardsProps
   const totalFundsDisplay =
     Object.entries(currencyTotals)
       .map(([currency, amount]) => formatCompactCurrency(amount, currency))
-      .join(" + ") || "0 CKB"
+      .join(" + ") || "0 USD"
 
   const activeProjects = projects.filter((p) => p.status.toLowerCase() === "active").length
 

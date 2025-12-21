@@ -23,7 +23,10 @@ export function ProjectProgress({ project }: ProjectProgressProps) {
             {project.completed_milestones} of {project.total_milestones} milestones completed
           </p>
           <p className="text-xs text-muted-foreground">
-            {formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "CKB")} allocated
+            {project.funding_amount
+              ? formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "USD")
+              : "TBD"}{" "}
+            allocated
           </p>
         </div>
       </CardContent>

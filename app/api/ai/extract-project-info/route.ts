@@ -62,9 +62,9 @@ export async function POST(req: NextRequest) {
                 - projectName: string (inferred title)
                 - projectDescription: string (detailed description)
                 - category: string (One of: "development", "education", "infrastructure", "content", "research", "technology")
-                - fundingRequested: number (numeric value ONLY, representing the primary total amount)
-                - fundingCurrency: string ("USD" or "CKB". The primary currency of the project.)
-                - fundingDetails: array of objects [{ amount: number, currency: string }] (Extract all mentioned funding amounts and their respective currencies. For example: if "50% USDI + 50% CKB" is mentioned with a total of 10000 USD, extract [{amount: 5000, currency: "USD"}, {amount: 500000, currency: "CKB"} if conversion is known, otherwise extract raw values mentioned).
+                - fundingRequested: number (The TOTAL budget of the project in USD. If the text mentions "Total budget: 2000 USD", this MUST be 2000. This is the primary value used for display across the entire platform. If the total is in another currency, try to convert it to USD if possible, otherwise use the raw number but ALWAYS treat it as the total budget.)
+                - fundingCurrency: string (Always "USD" for the fundingRequested field.)
+                - fundingDetails: array of objects [{ amount: number, currency: string }] (Extract the specific currency breakdown. For example: if the text says "70% CKB, 30% USD" for a 2000 USD budget, you should extract {amount: 1400, currency: "USD-CKB-portion"} and {amount: 600, currency: "USD"}. IMPORTANT: Do NOT invent large numbers for CKB. If the text says "70% CKB", and the total is 2000 USD, just note that 1400 USD is the CKB portion. DO NOT try to calculate the number of CKB tokens unless a specific CKB amount like "1,000,000 CKB" is explicitly mentioned in the text. If you only see percentages or USD equivalents, use the USD value for the amount and specify the currency as "CKB" or "USD" accordingly.)
                 - githubRepo: string (URL)
                 - proposalLink: string (URL)
                 - programType: string ("milestone" or "program")

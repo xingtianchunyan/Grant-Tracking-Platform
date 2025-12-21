@@ -122,7 +122,7 @@ export const ProjectGrid = React.memo(function ProjectGrid({ projects, milestone
                   <span className="text-white text-xs md:text-sm" style={{ fontFamily: "var(--font-sf-rounded)" }}>
                     Budget:{" "}
                     {project.funding_amount
-                      ? formatCompactCurrency(project.funding_amount, project.funding_currency || "CKB")
+                      ? formatCompactCurrency(project.funding_amount, project.funding_currency || "USD")
                       : "N/A"}
                   </span>
                   <span

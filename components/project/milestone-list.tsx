@@ -14,7 +14,7 @@ interface MilestoneListProps {
   fundingCurrency?: string
 }
 
-export function MilestoneList({ milestones, onMilestoneClick, fundingCurrency = "CKB" }: MilestoneListProps) {
+export function MilestoneList({ milestones, onMilestoneClick, fundingCurrency = "USD" }: MilestoneListProps) {
   if (milestones.length === 0) {
     return (
       <div className="text-center py-4">
