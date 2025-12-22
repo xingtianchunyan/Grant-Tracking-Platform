@@ -69,9 +69,18 @@ function RecentUpdatesList({
     return <p className="text-sm text-muted-foreground text-center py-4">No recent updates yet</p>
   }
 
+  // Separate GitHub activities and other activities
+  const githubActivities = items.filter((u) => u.source.toLowerCase() === "github")
+  const otherActivities = items.filter((u) => u.source.toLowerCase() !== "github")
+
+  // Limit GitHub activities to 2, keep all others
+  const filteredItems = [...otherActivities, ...githubActivities.slice(0, 2)].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  )
+
   return (
     <div className="space-y-3">
-      {items.slice(0, 5).map((u) => {
+      {filteredItems.map((u) => {
         return (
           <button
             key={u.id}
