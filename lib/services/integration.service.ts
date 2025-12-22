@@ -1,4 +1,6 @@
 import { config } from "@/configs/config"
+import { ActivityService } from "./activity.service"
+import { normalizeRepo, extractBranch } from "@/lib/github-utils"
 
 export interface GithubCommitSummary {
   sha: string
@@ -32,18 +34,20 @@ export class IntegrationService {
    * Normalize GitHub repository URL to "owner/repo" format
    */
   static normalizeRepo(repo?: string | null): string | null {
-    if (!repo) return null
-    const r = repo.trim()
-    const m = r.match(/^https?:\/\/github\.com\/([^/\s]+)\/([^/\s]+?)(?:\.git|\/)?$/i)
-    if (m) return `${m[1]}/${m[2]}`
-    if (/^[^/\s]+\/[^/\s]+$/.test(r)) return r
-    return null
+    return normalizeRepo(repo)
+  }
+
+  /**
+   * Extract branch name from GitHub URL if present (e.g., /tree/branch-name)
+   */
+  static extractBranch(repo?: string | null): string | null {
+    return extractBranch(repo)
   }
 
   /**
    * Check GitHub activity (commits and PRs) for a repository
    */
-  static async checkGithubActivity(repo: string, sinceIso: string): Promise<GithubCheck> {
+  static async checkGithubActivity(repo: string, sinceIso: string, branch?: string | null): Promise<GithubCheck> {
     if (!repo || !repo.includes("/")) return { ok: false, reason: "invalid_repo_format" }
 
     const headers: Record<string, string> = {
@@ -63,7 +67,7 @@ export class IntegrationService {
       const sinceDate = new Date(sinceIso)
 
       // Fetch up to 2 latest commits to sync history
-      const commitsUrl = `${base}/commits?per_page=2`
+      const commitsUrl = `${base}/commits?per_page=2${branch ? `&sha=${branch}` : ""}`
       const cRes = await fetch(commitsUrl, { headers, cache: "no-store" })
       
       let commitsList: GithubCommitSummary[] = []
@@ -155,5 +159,60 @@ export class IntegrationService {
     } catch (e: any) {
       return { ok: false, reason: `github_error:${e?.message || "unknown"}` }
     }
+  }
+
+  /**
+    * Sync GitHub activity for a project
+    */
+   static async syncGithubActivity(projectId: number, repo: string, sinceIso: string): Promise<GithubCheck> {
+     const normRepo = this.normalizeRepo(repo)
+     if (!normRepo) return { ok: false, reason: "invalid_repo_format" }
+ 
+     const branch = this.extractBranch(repo)
+     const res = await this.checkGithubActivity(normRepo, sinceIso, branch)
+     if (!res.ok) return res
+
+    // --- SYNC COMMITS ---
+    if (res.commits) {
+      for (const c of res.commits) {
+        if (!c.url) continue
+        const already = await ActivityService.activityExists(projectId, "commit", c.url)
+        if (!already) {
+          await ActivityService.createActivity({
+            projectId,
+            activity_type: "commit",
+            source: "GITHUB",
+            title: c.message?.split("\n")[0] || "Commit",
+            description: c.message,
+            url: c.url,
+            author: c.authorName,
+            timestamp: c.date,
+          })
+        }
+      }
+    }
+
+    // --- SYNC PRS ---
+    if (res.prs) {
+      for (const pr of res.prs) {
+        if (!pr.url) continue
+        const activityType = pr.merged ? "merge" : "pull_request"
+        const already = await ActivityService.activityExists(projectId, activityType, pr.url)
+        if (!already) {
+          await ActivityService.createActivity({
+            projectId,
+            activity_type: activityType,
+            source: "GITHUB",
+            title: pr.title || `PR #${pr.number}`,
+            description: pr.merged ? `PR #${pr.number} merged` : `PR #${pr.number} (${pr.state})`,
+            url: pr.url,
+            author: null,
+            timestamp: pr.mergedAt || pr.updatedAt,
+          })
+        }
+      }
+    }
+
+    return res
   }
 }

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import type { Project } from "@/lib/db"
 import { parseDurationToEndDate } from "@/lib/utils"
+import { IntegrationService } from "@/lib/services/integration.service"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,6 +30,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    // Trigger GitHub sync if github_repo is provided
+    if (project.github_repo) {
+      try {
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        
+        // Use project start_date or created_at as base, whichever is more appropriate
+        // but cap it at 30 days ago to avoid huge historical syncs
+        const baseDate = project.start_date ? new Date(project.start_date) : new Date(project.created_at)
+        const sinceDate = new Date(Math.max(thirtyDaysAgo.getTime(), baseDate.getTime()))
+        
+        // Run sync in background (don't await if we want fast response, 
+        // but here it's better to wait a bit or just fire and forget)
+        // Given the requirement, we'll await it to ensure it happens, 
+        // or at least start it.
+        IntegrationService.syncGithubActivity(
+          project.id, 
+          project.github_repo, 
+          sinceDate.toISOString()
+        ).catch(err => console.error(`[ProjectFetch] GitHub Sync Error for project ${project.id}:`, err))
+      } catch (err) {
+        console.error(`[ProjectFetch] Failed to initiate GitHub sync:`, err)
+      }
     }
 
     return NextResponse.json(project)
@@ -122,6 +148,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    // Trigger GitHub sync if github_repo is updated
+    if (project.github_repo) {
+      try {
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        
+        const baseDate = project.start_date ? new Date(project.start_date) : new Date(project.created_at)
+        const sinceDate = new Date(Math.max(thirtyDaysAgo.getTime(), baseDate.getTime()))
+        
+        IntegrationService.syncGithubActivity(
+          project.id, 
+          project.github_repo, 
+          sinceDate.toISOString()
+        ).catch(err => console.error(`[ProjectUpdate] GitHub Sync Error for project ${project.id}:`, err))
+      } catch (err) {
+        console.error(`[ProjectUpdate] Failed to initiate GitHub sync:`, err)
+      }
     }
 
     return NextResponse.json(project)

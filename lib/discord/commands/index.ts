@@ -4,12 +4,14 @@ import * as progressUpdate from "./progress-update";
 import * as milestoneStatus from "./milestone-status";
 import * as ping from "./ping";
 import * as createProject from "./create-project";
+import * as editProject from "./edit-project";
 
 const commands = {
   [progressUpdate.data.name]: progressUpdate,
   [milestoneStatus.data.name]: milestoneStatus,
   [ping.data.name]: ping,
   [createProject.data.name]: createProject,
+  [editProject.data.name]: editProject,
 };
 
 export async function registerCommands() {

@@ -1,5 +1,6 @@
 import "server-only"
 import { config } from "@/configs/config"
+import { normalizeRepo, extractBranch } from "./github-utils"
 
 function ghHeaders() {
   return {
@@ -13,11 +14,14 @@ function ghHeaders() {
 export async function hasRecentGitHubActivity(repo: string, sinceISO: string): Promise<boolean> {
   if (!config.githubToken || !repo) return false
 
-  const full = repo.replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "")
-  const base = `https://api.github.com/repos/${full}`
+  const normRepo = normalizeRepo(repo)
+  if (!normRepo) return false
+
+  const branch = extractBranch(repo)
+  const base = `https://api.github.com/repos/${normRepo}`
 
   const endpoints = [
-    `${base}/commits?since=${encodeURIComponent(sinceISO)}&per_page=1`,
+    `${base}/commits?since=${encodeURIComponent(sinceISO)}&per_page=1${branch ? `&sha=${branch}` : ""}`,
     `${base}/pulls?state=all&sort=updated&direction=desc&per_page=1`,
     `${base}/issues?since=${encodeURIComponent(sinceISO)}&state=all&per_page=1`,
   ]

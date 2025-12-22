@@ -1,24 +1,27 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, use } from "react"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Loader2, Edit3 } from "lucide-react"
+import { useState, useEffect, use, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, Save, Loader2, Edit3, Plus, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { FormField } from "@/components/forms/form-field"
 import { useProject } from "@/hooks/use-project"
-import { Plus } from "lucide-react"
 
-export default function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+function EditProjectContent({ params }: { params: { id: string } }) {
+  const { id } = params
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const { project, isLoading, error } = useProject(id)
   
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isAutoFilled, setIsAutoFilled] = useState(false)
+
   const [formData, setFormData] = useState({
     title: "",
     creatorUsername: "",
@@ -78,6 +81,65 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     }
   }, [project])
 
+  // AI Extraction logic for tempId
+  useEffect(() => {
+    const tempId = searchParams.get("tempId")
+    if (tempId && project) {
+      // Capture project in a local constant to prevent type narrowing issues in async closures
+      const currentProject = project
+
+      async function fetchAndAnalyze() {
+        setIsAnalyzing(true)
+        try {
+          const msgRes = await fetch(`/api/discord/temp-message/${tempId}`)
+          if (!msgRes.ok) throw new Error("Failed to fetch message content")
+          const msgData = await msgRes.json()
+          
+          const aiRes = await fetch("/api/ai/extract-project-info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: msgData.content })
+          })
+          
+          const extracted = await aiRes.json()
+          if (!aiRes.ok) throw new Error(extracted.error || "AI extraction failed")
+
+          setFormData(prev => ({
+            ...prev,
+            title: isEditable(currentProject.name) ? (extracted.projectName || prev.title) : prev.title,
+            background: isEditable(currentProject.description) ? (extracted.projectDescription || prev.background) : prev.background,
+            fundingRequested: isEditable(currentProject.funding_amount) ? (extracted.fundingRequested ? String(extracted.fundingRequested) : prev.fundingRequested) : prev.fundingRequested,
+            fundingCurrency: isEditable(currentProject.funding_currency) ? (extracted.fundingCurrency || prev.fundingCurrency) : prev.fundingCurrency,
+            category: isEditable(currentProject.category) ? (extracted.category || prev.category) : prev.category,
+            programType: isEditable(currentProject.program_type) ? (extracted.programType || prev.programType) : prev.programType,
+            duration: isEditable(currentProject.duration) ? (extracted.duration || prev.duration) : prev.duration,
+            githubRepo: isEditable(currentProject.github_repo) ? (extracted.githubRepo || prev.githubRepo) : prev.githubRepo,
+            proposalLink: isEditable(currentProject.proposal_link) ? (extracted.proposalLink || prev.proposalLink) : prev.proposalLink,
+            granteeEmail: isEditable(currentProject.grantee_email) ? (extracted.granteeEmail || prev.granteeEmail) : prev.granteeEmail,
+            missionExpertise: isEditable(currentProject.mission_expertise) ? (extracted.missionExpertise || prev.missionExpertise) : prev.missionExpertise,
+            campaignGoals: isEditable(currentProject.campaign_goals) ? (extracted.campaignGoals || prev.campaignGoals) : prev.campaignGoals,
+          }))
+
+          setIsAutoFilled(true)
+          toast({
+            title: "AI Analysis Complete",
+            description: "Form has been auto-filled with extracted data where fields were empty.",
+          })
+        } catch (error: any) {
+          console.error("Auto-fill error:", error)
+          toast({
+            title: "Auto-fill Failed",
+            description: error.message || "Could not automatically extract info.",
+            variant: "destructive"
+          })
+        } finally {
+          setIsAnalyzing(false)
+        }
+      }
+      fetchAndAnalyze()
+    }
+  }, [searchParams, project, toast])
+
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -116,9 +178,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     })
   }
 
-  const isEditable = (value: any) => {
-    if (Array.isArray(value)) return value.length === 0
-    return value === null || value === undefined || value === "" || value === 0
+  const isEditable = (fieldValue: any) => {
+    if (Array.isArray(fieldValue)) return fieldValue.length === 0
+    return fieldValue === null || fieldValue === undefined || fieldValue === "" || fieldValue === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -132,32 +194,32 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: formData.title,
-          description: formData.background,
-          github_repo: formData.githubRepo,
-          proposal_link: formData.proposalLink,
-          discord_channel: formData.creatorUsername,
-          creator_username: formData.creatorUsername,
-          funding_amount: Number.parseFloat(formData.fundingRequested) || 0,
-          funding_currency: formData.fundingCurrency,
-          funding_details: formData.fundingDetails
-            .filter(d => d.amount)
-            .map(d => ({ amount: Number.parseFloat(d.amount), currency: d.currency })),
-          grantee_email: formData.granteeEmail,
-          mission_expertise: formData.missionExpertise,
-          campaign_goals: formData.campaignGoals,
-          website_links: formData.websiteLinks,
-          program_type: formData.programType,
-          category: formData.category,
-          duration: formData.duration,
-          creator_stat_1_name: formData.creatorStat1Name,
+          name: formData.title || null,
+          description: formData.background || null,
+          github_repo: formData.githubRepo || null,
+          proposal_link: formData.proposalLink || null,
+          discord_channel: formData.creatorUsername || null,
+          creator_username: formData.creatorUsername || null,
+          funding_amount: formData.fundingRequested ? Number.parseFloat(formData.fundingRequested) : null,
+          funding_currency: formData.fundingCurrency || null,
+          funding_details: formData.fundingDetails.filter(d => d.amount).length > 0
+            ? formData.fundingDetails.filter(d => d.amount).map(d => ({ amount: Number.parseFloat(d.amount), currency: d.currency }))
+            : null,
+          grantee_email: formData.granteeEmail || null,
+          mission_expertise: formData.missionExpertise || null,
+          campaign_goals: formData.campaignGoals || null,
+          website_links: formData.websiteLinks || null,
+          program_type: formData.programType || null,
+          category: formData.category || null,
+          duration: formData.duration || null,
+          creator_stat_1_name: formData.creatorStat1Name || null,
           creator_stat_1_number: formData.creatorStat1Number ? Number.parseInt(formData.creatorStat1Number) : null,
-          creator_stat_2_name: formData.creatorStat2Name,
+          creator_stat_2_name: formData.creatorStat2Name || null,
           creator_stat_2_number: formData.creatorStat2Number ? Number.parseInt(formData.creatorStat2Number) : null,
-          youtube_link: formData.youtubeLink,
-          tiktok_link: formData.tiktokLink,
-          twitter_link: formData.twitterLink,
-          twitch_link: formData.twitchLink,
+          youtube_link: formData.youtubeLink || null,
+          tiktok_link: formData.tiktokLink || null,
+          twitter_link: formData.twitterLink || null,
+          twitch_link: formData.twitchLink || null,
         }),
       })
 
@@ -170,7 +232,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         description: `${formData.title} has been successfully updated.`,
       })
 
-      router.push(`/admin/projects/${id}`)
+      router.push(`/projects/${id}`)
       router.refresh()
     } catch (error) {
       toast({
@@ -206,22 +268,25 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
     <div className="min-h-screen bg-background text-white">
       <div className="pt-20">
         <div className="container mx-auto px-4 md:px-6 py-4">
+          {/* Header */}
           <div className="flex items-center gap-4 mb-6">
-            <Link href={`/admin/projects/${id}`} className="flex items-center gap-2 text-white hover:text-[#10c0dd] transition-colors">
+            <Link href={`/projects/${id}`} className="flex items-center gap-2 text-white hover:text-[#10c0dd] transition-colors">
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Project</span>
             </Link>
           </div>
 
           <div className="max-w-4xl mx-auto">
-            <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+            <Card className={`bg-card/80 backdrop-blur-sm border-border/50 ${isAutoFilled ? 'ring-2 ring-[#10c0dd]' : ''}`}>
               <CardHeader>
                 <CardTitle className="text-white text-2xl font-bold flex items-center gap-2">
                   <Edit3 className="w-6 h-6 text-[#10c0dd]" />
                   Edit Project: {project.name}
                 </CardTitle>
                 <p className="text-muted-foreground">
-                  Update project information. Fields with existing data are read-only.
+                  Update project information. Required fields (*) are read-only, while optional fields can be edited.
+                  {isAnalyzing && <span className="text-[#10c0dd] flex items-center gap-2 mt-1"><Loader2 className="w-4 h-4 animate-spin"/> Analyzing Discord message...</span>}
+                  {!isAnalyzing && isAutoFilled && <span className="text-[#10c0dd] block mt-1">✨ Data auto-filled by AI</span>}
                 </p>
               </CardHeader>
               <CardContent>
@@ -231,8 +296,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                     label="Project Title"
                     value={formData.title}
                     onChange={(value) => handleInputChange("title", value)}
-                    disabled={!isEditable(project.name)}
+                    placeholder="Enter project title"
                     required
+                    disabled={true}
                   />
 
                   <FormField
@@ -240,8 +306,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                     label="Creator Username (Discord)"
                     value={formData.creatorUsername}
                     onChange={(value) => handleInputChange("creatorUsername", value)}
-                    disabled={!isEditable(project.creator_username || project.discord_channel)}
+                    placeholder="Discord username for authentication"
                     required
+                    disabled={true}
                   />
 
                   <FormField
@@ -250,8 +317,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                     type="email"
                     value={formData.granteeEmail}
                     onChange={(value) => handleInputChange("granteeEmail", value)}
-                    disabled={!isEditable(project.grantee_email)}
+                    placeholder="grantee@example.com"
                     required
+                    disabled={true}
                   />
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -261,7 +329,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                       type="select"
                       value={formData.category}
                       onChange={(value) => handleInputChange("category", value)}
-                      disabled={!isEditable(project.category)}
+                      placeholder="Select category"
                       options={[
                         { value: "development", label: "Development" },
                         { value: "education", label: "Education" },
@@ -271,6 +339,7 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                         { value: "technology", label: "Technology" },
                       ]}
                       required
+                      disabled={true}
                     />
                   </div>
 
@@ -280,28 +349,29 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                     type="select"
                     value={formData.programType}
                     onChange={(value) => handleInputChange("programType", value)}
-                    disabled={!isEditable(project.program_type)}
+                    placeholder="Select program type"
                     options={[
                       { value: "milestone", label: "Milestone-based Program" },
                       { value: "program", label: "Program with Sub-projects" },
                     ]}
+                    helpText="Milestone-based programs track progress through milestones. Programs with sub-projects contain multiple projects instead of milestones."
                     required
+                    disabled={true}
                   />
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <label className="text-white font-medium">Budget & Funding *</label>
-                      {!isEditable(project.funding_details) && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={addFundingDetail}
-                          className="h-8 border-[#10c0dd] text-[#10c0dd] hover:bg-[#10c0dd]/10"
-                        >
-                          <Plus className="w-4 h-4 mr-1" /> Add Currency
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addFundingDetail}
+                        className="h-8 border-[#10c0dd] text-[#10c0dd] hover:bg-[#10c0dd]/10"
+                        disabled={true}
+                      >
+                        <Plus className="w-4 h-4 mr-1" /> Add Currency
+                      </Button>
                     </div>
 
                     <div className="p-4 border border-[#10c0dd]/30 rounded-lg bg-[#10c0dd]/5 mb-4">
@@ -311,9 +381,10 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                         type="number"
                         value={formData.fundingRequested}
                         onChange={(value) => handleInputChange("fundingRequested", value)}
-                        disabled={!isEditable(project.funding_amount)}
+                        placeholder="Total project budget in USD (e.g. 2000)"
                         required
-                        helpText="The total budget for the project in USD."
+                        helpText="The total budget for the project in USD. This is the primary amount displayed on project cards and the homepage."
+                        disabled={true}
                       />
                     </div>
                     
@@ -329,8 +400,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                             type="number"
                             value={detail.amount}
                             onChange={(value) => handleFundingDetailChange(index, "amount", value)}
-                            disabled={!isEditable(project.funding_details && project.funding_details[index]?.amount)}
+                            placeholder="e.g. 25000"
                             required
+                            disabled={true}
                           />
                         </div>
                         <div className="w-32">
@@ -340,25 +412,14 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                             type="select"
                             value={detail.currency}
                             onChange={(value) => handleFundingDetailChange(index, "currency", value)}
-                            disabled={!isEditable(project.funding_details && project.funding_details[index]?.currency)}
                             options={[
                               { value: "USD", label: "USD" },
                               { value: "CKB", label: "CKB" },
                             ]}
                             required
+                            disabled={true}
                           />
                         </div>
-                        {formData.fundingDetails.length > 1 && isEditable(project.funding_details && project.funding_details[index]) && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeFundingDetail(index)}
-                            className="mb-2 text-red-500 hover:text-red-400 hover:bg-red-500/10"
-                          >
-                            <Plus className="w-4 h-4 rotate-45" />
-                          </Button>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -368,8 +429,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                     label="Duration"
                     value={formData.duration}
                     onChange={(value) => handleInputChange("duration", value)}
-                    disabled={!isEditable(project.duration)}
+                    placeholder="e.g., 1 year, 6 months, 3 weeks"
                     required
+                    disabled={true}
                   />
 
                   <FormField
@@ -378,8 +440,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                     type="textarea"
                     value={formData.background}
                     onChange={(value) => handleInputChange("background", value)}
-                    disabled={!isEditable(project.description || project.project_background)}
+                    placeholder="Describe the project background and context..."
                     required
+                    disabled={true}
                   />
 
                   <FormField
@@ -388,8 +451,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                     type="textarea"
                     value={formData.missionExpertise}
                     onChange={(value) => handleInputChange("missionExpertise", value)}
-                    disabled={!isEditable(project.mission_expertise)}
+                    placeholder="Describe the mission and team expertise..."
                     required
+                    disabled={true}
                   />
 
                   <FormField
@@ -398,8 +462,9 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                     type="textarea"
                     value={formData.campaignGoals}
                     onChange={(value) => handleInputChange("campaignGoals", value)}
-                    disabled={!isEditable(project.campaign_goals)}
+                    placeholder="Describe the campaign goals and expected outcomes..."
                     required
+                    disabled={true}
                   />
 
                   <div className="space-y-4">
@@ -410,7 +475,8 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                         label="Statistic 1 Name"
                         value={formData.creatorStat1Name}
                         onChange={(value) => handleInputChange("creatorStat1Name", value)}
-                        disabled={!isEditable(project.creator_stat_1_name)}
+                        placeholder="e.g., GitHub Stars, Followers, etc."
+                        disabled={false}
                       />
                       <FormField
                         id="creatorStat1Number"
@@ -418,14 +484,17 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                         type="number"
                         value={formData.creatorStat1Number}
                         onChange={(value) => handleInputChange("creatorStat1Number", value)}
-                        disabled={!isEditable(project.creator_stat_1_number)}
+                        placeholder="1000"
+                        disabled={false}
                       />
+
                       <FormField
                         id="creatorStat2Name"
                         label="Statistic 2 Name"
                         value={formData.creatorStat2Name}
                         onChange={(value) => handleInputChange("creatorStat2Name", value)}
-                        disabled={!isEditable(project.creator_stat_2_name)}
+                        placeholder="e.g., Years Experience, Projects, etc."
+                        disabled={false}
                       />
                       <FormField
                         id="creatorStat2Number"
@@ -433,86 +502,105 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
                         type="number"
                         value={formData.creatorStat2Number}
                         onChange={(value) => handleInputChange("creatorStat2Number", value)}
-                        disabled={!isEditable(project.creator_stat_2_number)}
+                        placeholder="5"
+                        disabled={false}
                       />
                     </div>
                   </div>
 
+                  <FormField
+                    id="githubRepo"
+                    label="GitHub Repository Link"
+                    type="url"
+                    value={formData.githubRepo}
+                    onChange={(value) => handleInputChange("githubRepo", value)}
+                    placeholder="https://github.com/username/repository"
+                    disabled={false}
+                  />
+
+                  <FormField
+                    id="proposalLink"
+                    label="Proposal Link"
+                    type="url"
+                    value={formData.proposalLink}
+                    onChange={(value) => handleInputChange("proposalLink", value)}
+                    placeholder="https://example.com/proposal-document"
+                    helpText="Optional: Link to the original project proposal document"
+                    disabled={false}
+                  />
+
                   <div className="space-y-4">
-                    <h3 className="text-white font-medium text-lg">Social & Project Links (Optional)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        id="githubRepo"
-                        label="GitHub Repository"
-                        value={formData.githubRepo}
-                        onChange={(value) => handleInputChange("githubRepo", value)}
-                        disabled={!isEditable(project.github_repo)}
-                      />
-                      <FormField
-                        id="proposalLink"
-                        label="Proposal Link"
-                        value={formData.proposalLink}
-                        onChange={(value) => handleInputChange("proposalLink", value)}
-                        disabled={!isEditable(project.proposal_link)}
-                      />
-                    </div>
-                    <FormField
-                      id="websiteLinks"
-                      label="Website Links"
-                      value={formData.websiteLinks}
-                      onChange={(value) => handleInputChange("websiteLinks", value)}
-                      disabled={!isEditable(project.website_links)}
-                    />
+                    <h3 className="text-white font-medium text-lg">Platform Links (Optional)</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         id="youtubeLink"
                         label="YouTube"
+                        type="url"
                         value={formData.youtubeLink}
                         onChange={(value) => handleInputChange("youtubeLink", value)}
-                        disabled={!isEditable(project.youtube_link)}
+                        placeholder="https://youtube.com/@username"
+                        disabled={false}
                       />
+
                       <FormField
                         id="tiktokLink"
                         label="TikTok"
+                        type="url"
                         value={formData.tiktokLink}
                         onChange={(value) => handleInputChange("tiktokLink", value)}
-                        disabled={!isEditable(project.tiktok_link)}
+                        placeholder="https://tiktok.com/@username"
+                        disabled={false}
                       />
+
                       <FormField
                         id="twitterLink"
-                        label="Twitter (X)"
+                        label="X/Twitter"
+                        type="url"
                         value={formData.twitterLink}
                         onChange={(value) => handleInputChange("twitterLink", value)}
-                        disabled={!isEditable(project.twitter_link)}
+                        placeholder="https://x.com/username"
+                        disabled={false}
                       />
+
                       <FormField
                         id="twitchLink"
                         label="Twitch"
+                        type="url"
                         value={formData.twitchLink}
                         onChange={(value) => handleInputChange("twitchLink", value)}
-                        disabled={!isEditable(project.twitch_link)}
+                        placeholder="https://twitch.tv/username"
+                        disabled={false}
                       />
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-4 pt-4 border-t border-border/50">
-                    <Link href={`/projects/${id}`}>
-                      <Button type="button" variant="outline">
-                        Cancel
-                      </Button>
-                    </Link>
-                    <Button type="submit" className="bg-[#10c0dd] hover:bg-[#10c0dd]/80" disabled={isSubmitting}>
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Changes
-                        </>
-                      )}
+                  <FormField
+                    id="websiteLinks"
+                    label="Website / Platform Links"
+                    type="textarea"
+                    value={formData.websiteLinks}
+                    onChange={(value) => handleInputChange("websiteLinks", value)}
+                    placeholder="Enter website URLs, social media links, etc. (one per line)"
+                    helpText="Optional: Add website, social media, or other platform links (one per line)"
+                    disabled={false}
+                  />
+
+                  {/* Submit Button */}
+                  <div className="flex gap-4 pt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.back()}
+                      className="border-border text-muted-foreground hover:bg-card"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="bg-[#10c0dd] hover:bg-[#0ea5e9] text-white"
+                    >
+                      {isSubmitting ? "Saving..." : "Save Project"}
                     </Button>
                   </div>
                 </form>
@@ -522,5 +610,18 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
     </div>
+  )
+}
+
+export default function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background text-white pt-20 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#10c0dd]" />
+      </div>
+    }>
+      <EditProjectContent params={resolvedParams} />
+    </Suspense>
   )
 }

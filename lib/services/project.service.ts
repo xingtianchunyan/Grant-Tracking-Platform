@@ -3,6 +3,7 @@ import type { Project } from "@/lib/types"
 import { parseDurationToEndDate } from "@/lib/utils"
 import { config } from "@/configs/config"
 import { validateStringLength, validateEmail } from "@/lib/api-helpers"
+import { IntegrationService } from "./integration.service"
 
 /**
  * Service to handle Project-related business logic.
@@ -172,12 +173,27 @@ export class ProjectService {
 
     console.log(`[ProjectService] Project inserted successfully: ${project?.id}`);
 
-    // Post-creation hooks (Discord resolution)
+    // Post-creation hooks (Discord resolution & GitHub sync)
     if (project?.creator_username) {
       // Fire and forget or handle asynchronously to avoid blocking the main response
       this.resolveAndAssignDiscordUser(project.id, project.creator_username).catch(err => {
         console.error(`[ProjectService] Discord resolution failed for project ${project.id}:`, err);
       });
+    }
+
+    if (project?.github_repo) {
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const baseDate = project.start_date ? new Date(project.start_date) : new Date(project.created_at)
+      const sinceDate = new Date(Math.max(thirtyDaysAgo.getTime(), baseDate.getTime()))
+
+      IntegrationService.syncGithubActivity(
+        project.id,
+        project.github_repo,
+        sinceDate.toISOString()
+      ).catch(err => {
+        console.error(`[ProjectService] GitHub Sync Error for project ${project.id}:`, err)
+      })
     }
 
     return project

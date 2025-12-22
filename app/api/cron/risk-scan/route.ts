@@ -153,7 +153,7 @@ async function runRiskScanJob() {
       repo_check = "invalid"
       gh = { reason: "invalid_repo_format" }
     } else if (normRepo) {
-      const ghRes = await IntegrationService.checkGithubActivity(normRepo, sinceForGithubIso)
+      const ghRes = await IntegrationService.syncGithubActivity(p.id, p.github_repo, sinceForGithubIso)
       if (!ghRes.ok) {
         repo_check = ghRes.reason?.startsWith("invalid_repo_format") ? "invalid" : "error"
         gh = { reason: ghRes.reason }
@@ -162,51 +162,6 @@ async function runRiskScanJob() {
         gh = {
           commitActivity: !!ghRes.commitActivity,
           pullActivity: !!ghRes.pullActivity,
-        }
-
-        // --- SYNC COMMITS ---
-        if (ghRes.commits) {
-          for (const c of ghRes.commits) {
-             if (!c.url) continue;
-             const already = await ActivityService.activityExists(p.id, "commit", c.url)
-             if (!already) {
-               await ActivityService.createActivity({
-                 projectId: p.id,
-                 activity_type: "commit",
-                 source: "GITHUB",
-                 title: c.message?.split("\n")[0] || "Commit",
-                 description: c.message,
-                 url: c.url,
-                 author: c.authorName,
-                 timestamp: c.date,
-               })
-             }
-          }
-        }
-
-        // --- SYNC PRS ---
-        if (ghRes.prs) {
-          for (const pr of ghRes.prs) {
-            if (!pr.url) continue;
-            
-            const activityType = pr.merged ? "merge" : "pull_request";
-            
-            const already = await ActivityService.activityExists(p.id, activityType, pr.url)
-            if (!already) {
-               await ActivityService.createActivity({
-                 projectId: p.id,
-                 activity_type: activityType,
-                 source: "GITHUB",
-                 title: pr.title || `PR #${pr.number}`,
-                 description: pr.merged 
-                   ? `PR #${pr.number} merged` 
-                   : `PR #${pr.number} (${pr.state})`,
-                 url: pr.url,
-                 author: null,
-                 timestamp: pr.mergedAt || pr.updatedAt,
-               })
-            }
-          }
         }
       }
     } else {
