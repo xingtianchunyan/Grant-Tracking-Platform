@@ -94,18 +94,24 @@ As outlined in the Q3/Q4 roadmap, future features will require elevated permissi
 
 - Node.js ≥ 20
 - PostgreSQL (Neon, Supabase, or local Postgres)
-- A `.env.local` file with all required tokens and DB URL
+- A `.env` file based on `.env.example`
 
-**Example `.env.local`:**
+### Environment Setup
 
-```
-DATABASE_URL=postgresql://user:pass@host/dbname?sslmode=require
-SERVICE_BOT_TOKEN=super-long-secret-token
-DISCORD_BOT_TOKEN=...
-DISCORD_CLIENT_ID=...
-DISCORD_GUILD_ID=...
-GITHUB_TOKEN=...
-```
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Fill in the required variables in `.env`:
+   - `DATABASE_URL`: Your Postgres connection string
+   - `SERVICE_BOT_TOKEN`: A secret string for internal API security
+   - `DISCORD_BOT_TOKEN_COMMANDER`: Your Discord Bot Token
+   - `GITHUB_TOKEN`: Your GitHub Personal Access Token (for syncing activities)
+
+3. (Optional) Configure advanced features:
+   - `SILICONFLOW_API_KEY`: Enable AI-powered project extraction
+   - `HTTP_PROXY`: Set if you are in a restricted network environment
 
 ### Run All Services at Once
 
