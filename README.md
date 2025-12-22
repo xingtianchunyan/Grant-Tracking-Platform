@@ -1,157 +1,126 @@
-# Nervos Grant Tracking Plaform
+# Nervos Grant Tracking Platform
 
-## Overview
+## 概览 (Overview)
 
-This project is a full-stack Next.js 14 application integrating:
+这是一个基于 **Next.js 16.0.7** 和 **React 19** 构建的全栈项目，旨在自动追踪和管理 Nervos 生态系统中的 Grant 项目进度。
 
-- Discord Bot Integration — posts progress updates and milestone completions directly from Discord
-- GitHub Integration — fetches and syncs project data or issues from repositories
-- Neon Postgres Database for persistent project and activity tracking
-- Activity Logs and Project Dashboard automatically reflecting Discord and GitHub actions
+项目集成了以下核心功能：
+- **Discord 机器人集成**：直接从 Discord 发布进度更新和里程碑状态，自动同步到仪表板。
+- **GitHub 集成**：自动拉取并同步代码库中的提交（Commits）、PR 和 Issues。
+- **项目风险扫描**：定期扫描项目活跃度，对超过 30 天无更新或里程碑逾期的项目发出预警。
+- **AI 项目提取**：利用 AI 自动从项目描述中提取关键信息（基于 SiliconFlow）。
 
-All backend APIs (milestones, progress updates, project syncs) are built as server routes under `/app/api/...`, secured with a service bot token (`SERVICE_BOT_TOKEN`).
+---
 
-## Integrations
+## 技术栈 (Tech Stack)
 
-### Discord Integration
+- **Frontend**: Next.js 16.0.7 (App Router), React 19, Tailwind CSS, Lucide React, Shadcn UI
+- **Backend**: Next.js Server Actions & API Routes
+- **Database**: PostgreSQL (支持 Neon Serverless 或本地 Docker 部署)
+- **Integration**: Discord.js, GitHub REST API, SiliconFlow (AI)
+- **Tooling**: TypeScript, tsx, node-cron, undici (Proxy support)
 
-The included bot connects to your Discord server and enables:
+---
 
-- `/progress-update` — posts recent updates to linked projects
-- `/milestone-status` — marks active milestones as completed
-- Automatically syncs data to the dashboard and activity log
+## 开发环境配置 (Environment Setup)
 
-**Configuration:**
+由于原开发者位于海外而后续开发在中国大陆，本项目特别优化了不同网络环境下的适配方案。
 
-```
-DISCORD_BOT_TOKEN=your_discord_bot_token
-DISCORD_CLIENT_ID=your_discord_client_id
-DISCORD_GUILD_ID=your_server_id
-SERVICE_BOT_TOKEN=super-long-secret-token
-```
+### 1. 基础环境
+- **Node.js**: ≥ 20.x
+- **Docker Desktop**: 用于运行本地数据库
 
-You can register and test commands with:
-
+### 2. 环境变量设置
+复制 `.env.example` 并重命名为 `.env`：
 ```bash
-npx tsx scripts/discord-commander.ts
+cp .env.example .env
 ```
 
-### GitHub Integration
+### 3. 网络代理配置 (中国大陆开发者必看)
+中国大陆开发者在访问 Discord、GitHub 或 AI API 时可能遇到超时问题。本项目已在 `lib/proxy.ts` 中集成了全局代理支持。
 
-Connects to GitHub repositories for each project to:
-
-- Sync commits, PRs, or issues as activity logs
-- Track active development directly in the dashboard
-
-**Configuration:**
-
+在 `.env` 中设置以下变量（端口 `7078` 为常用代理示例，请根据实际调整）：
+```bash
+# 全局代理配置
+HTTP_PROXY="http://127.0.0.1:7078"
+HTTPS_PROXY="http://127.0.0.1:7078"
 ```
-GITHUB_TOKEN=your_github_personal_access_token
-GITHUB_WEBHOOK_SECRET=your_webhook_secret
-```
+系统启动时会自动读取并配置全局 `ProxyAgent`，确保 `discord.js` 和 `fetch` 请求能够正常通行。
 
-GitHub events (like push or milestone close) trigger updates in `activity_logs` via `/api/github/webhook`.
+---
 
-## Discord Bot Permissions & Security
+## 核心集成指南 (Integration Guides)
 
-### Production Permissions (Minimum Required)
+### 1. Discord 机器人设置 (Discord Bot)
 
-For the current version (v1.0), the Discord Bot adheres to the Principle of Least Privilege. When generating the invite link in the Discord Developer Portal, select ONLY the following permissions:
+#### 最小权限原则 (Principle of Least Privilege)
+为了安全起见，请在 [Discord Developer Portal](https://discord.com/developers/applications) 中为机器人配置以下最小权限：
 
-*   **View Channels** (`VIEW_CHANNEL` - 0x400): Required to see channels and verify bot presence.
-*   **Send Messages** (`SEND_MESSAGES` - 0x800): Required to post update notifications to public channels.
-*   **Embed Links** (`EMBED_LINKS` - 0x4000): Required for rich text formatting in update messages.
-*   **Use Application Commands** (`USE_APPLICATION_COMMANDS` - 0x80000000): Required for Slash Commands (`/progress-update`, etc.).
+- **Scopes**: `bot`, `applications.commands`
+- **Bot Permissions**:
+    - `View Channels` (查看频道)
+    - `Send Messages` (发送消息)
+    - `Embed Links` (嵌入链接)
+    - `Use Application Commands` (使用应用指令)
+- **权限位 (Permissions Integer)**: `2147486720` (或精简版的 `3072`)
 
-**Generated OAuth2 URL Scope:** `bot applications.commands`
-**Permissions Integer:** `2147486720` (or `3072` for basic text permissions + implicit slash commands).
-
-**Explicitly EXCLUDED Permissions:**
-*   Administrator (⛔ Dangerous)
-*   Manage Channels (Reserved for future auto-channel features)
-*   Mention Everyone (⛔ Anti-spam)
-
-### Future Roadmap & Permissions
-
-As outlined in the Q3/Q4 roadmap, future features will require elevated permissions. These must be audited before enabling:
-
-1.  **AI-Driven Project Creation** (`/create-project`):
-    *   **Integration**: Uses **siliconflow API** to parse natural language project descriptions into structured data.
-    *   **New Permission**: `MANAGE_CHANNELS` (to create project-specific channels).
-    *   **Security**: This command will be restricted to `Manage Guild` role holders via Discord's Integration settings.
-
-2.  **Milestone Management** (`/set-milestone`):
-    *   **Permission**: No new bot permission, but command access will be restricted to project maintainer roles.
-
-### Security Audit
-
-*   **Audit Logs**: All sensitive bot actions (e.g., changing milestone status) are logged in the `activity_logs` table with `source: 'DISCORD'` and the caller's Discord ID.
-*   **Review Cycle**: Permissions should be reviewed quarterly to ensure no deprecated permissions remain active.
-
-## Local Development
-
-### Prerequisites
-
-- Node.js ≥ 20
-- PostgreSQL (Neon, Supabase, or local Postgres)
-- A `.env` file based on `.env.example`
-
-### Environment Setup
-
-1. Copy the example environment file:
+#### 机器人部署步骤
+1. 在 Portal 中获取 `TOKEN`, `APP_ID` 和 `GUILD_ID`。
+2. 将其填入 `.env` 文件。
+3. 运行指令注册脚本：
    ```bash
-   cp .env.example .env
+   npx tsx scripts/discord-commander.ts
    ```
 
-2. Fill in the required variables in `.env`:
-   - `DATABASE_URL`: Your Postgres connection string
-   - `SERVICE_BOT_TOKEN`: A secret string for internal API security
-   - `DISCORD_BOT_TOKEN_COMMANDER`: Your Discord Bot Token
-   - `GITHUB_TOKEN`: Your GitHub Personal Access Token (for syncing activities)
+### 2. GitHub 集成设置 (GitHub Integration)
 
-3. (Optional) Configure advanced features:
-   - `SILICONFLOW_API_KEY`: Enable AI-powered project extraction
-   - `HTTP_PROXY`: Set if you are in a restricted network environment
+项目支持通过 GitHub URL 自动同步活动，包括特定分支的支持（格式如 `.../tree/branch-name`）。
 
-### Run All Services at Once
+#### 设置步骤
+1. 生成一个 [GitHub Personal Access Token (PAT)](https://github.com/settings/tokens)，至少勾选 `repo` 权限。
+2. 将 Token 填入 `.env` 中的 `GITHUB_TOKEN`。
+3. 在管理后台编辑项目时，填入正确的 GitHub 仓库地址，系统将自动进行格式规范化处理。
 
-You can launch everything — frontend, cron jobs, and Discord bot — with one command:
+---
 
+## 本地运行 (Running Locally)
+
+### 1. 启动数据库
+```bash
+npm run db:up
+```
+
+### 2. 初始化数据库 (首次运行)
+```bash
+npm run db:setup
+```
+
+### 3. 一键启动所有服务
+该命令将同时启动前端开发服务器、Discord 机器人和 Cron 定时任务：
 ```bash
 npm run dev:all
 ```
 
-This runs concurrently:
+---
 
-- `next dev` (frontend)
-- `tsx scripts/scheduler.ts` (cron jobs)
-- `tsx scripts/discord-commander.ts` (Discord bot registration)
+## 常用指令 (Common Scripts)
 
-### Other Commands
+| 指令 | 说明 |
+| :--- | :--- |
+| `npm run dev` | 仅启动 Next.js 前端 |
+| `npm run risk:scan` | 手动触发一次项目风险扫描 |
+| `npm run risk:schedule` | 启动定时任务调度器 (Cron) |
+| `npm run discord` | 仅启动 Discord 机器人 |
+| `npm run db:setup` | 初始化数据库表结构并填充种子数据 |
 
-| Command                      | Description                       |
-| ---------------------------- | --------------------------------- |
-| `npm run dev`                | Run frontend only                 |
-| `npm run cron`               | Start scheduled tasks             |
-| `npm run discord`            | Launch Discord bot                |
-| `npm run reset-db`           | Clear all data (development only) |
-| `npm run build && npm start` | Production build & start          |
+---
 
-## Deployment
+## 安全与维护 (Security & Maintenance)
 
-The test project is live :https://sparkproject1.vercel.app/
-Video demo: https://www.youtube.com/watch?v=EG7_mFDe-sA
+- **敏感信息**: 严禁将 `.env` 文件提交至版本控制系统。
+- **数据库备份**: 生产环境建议使用 Neon 的 Point-in-Time Recovery 功能。
+- **代码规范**: 请确保所有外部请求均通过 `lib/proxy.ts` 配置的全局 Agent，以保证跨境协作的连通性。
 
-## Database Reset (Optional)
+---
 
-You can clear all data (keeping tables) via:
-
-```bash
-npx tsx scripts/reset-db.ts
-```
-
-## Security Note
-
-- Never commit `.env` files.
-- Keep a `.env.local.example` for developers to copy from.
-- All secrets (DB URLs, bot tokens) should be created individually per user.
+*注：原项目的 README 内容已备份至 `README_OLD.md`。*
