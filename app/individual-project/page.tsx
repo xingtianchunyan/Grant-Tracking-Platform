@@ -10,7 +10,7 @@ export default function IndividualProjectPage() {
 
   useEffect(() => {
     if (id) {
-      router.replace(`/admin/projects/${id}`)
+      router.replace(`/projects/${id}`)
     }
   }, [id, router])
 

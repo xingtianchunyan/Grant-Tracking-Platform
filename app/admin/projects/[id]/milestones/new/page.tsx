@@ -286,7 +286,7 @@ export default function NewMilestonePage() {
         <div className="container mx-auto px-4 md:px-6 py-4">
           <div className="flex items-center gap-4 mb-6">
             <Link
-              href={`/admin/projects/${params.id}`}
+              href={`/projects/${params.id}`}
               className="flex items-center gap-2 text-white hover:text-[#10c0dd] transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />

@@ -18,6 +18,7 @@ interface FormFieldProps {
   helpText?: string
   options?: { value: string; label: string }[]
   icon?: React.ReactNode
+  disabled?: boolean
 }
 
 export function FormField({
@@ -31,6 +32,7 @@ export function FormField({
   helpText,
   options,
   icon,
+  disabled = false,
 }: FormFieldProps) {
   const renderInput = () => {
     switch (type) {
@@ -41,14 +43,15 @@ export function FormField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="bg-card border-border text-white min-h-[100px]"
+            className="bg-card border-border text-white min-h-[100px] disabled:opacity-50 disabled:cursor-not-allowed"
             required={required}
+            disabled={disabled}
           />
         )
       case "select":
         return (
-          <Select value={value} onValueChange={onChange}>
-            <SelectTrigger className="bg-card border-border text-white">
+          <Select value={value} onValueChange={onChange} disabled={disabled}>
+            <SelectTrigger className="bg-card border-border text-white disabled:opacity-50 disabled:cursor-not-allowed">
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent className="bg-card border-border">
@@ -68,8 +71,9 @@ export function FormField({
               type="date"
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              className="bg-card border-border text-white"
+              className="bg-card border-border text-white disabled:opacity-50 disabled:cursor-not-allowed"
               required={required}
+              disabled={disabled}
             />
             {icon && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground pointer-events-none">
@@ -86,8 +90,9 @@ export function FormField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="bg-card border-border text-white"
+            className="bg-card border-border text-white disabled:opacity-50 disabled:cursor-not-allowed"
             required={required}
+            disabled={disabled}
           />
         )
     }

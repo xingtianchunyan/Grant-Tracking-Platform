@@ -41,9 +41,8 @@ export interface Project {
   readonly tiktok_link: string
   readonly twitter_link: string
   readonly twitch_link: string
-
-
-
+  readonly program_type?: string
+  readonly website_links?: string
 }
 
 

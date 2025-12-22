@@ -163,7 +163,7 @@ export class ActivityService {
       timestamp: r.timestamp,
       link: r.url && typeof r.url === "string" && r.url.trim()
         ? r.url
-        : `/admin/projects/${r.project_id}`,
+        : `/projects/${r.project_id}`,
     }))
   }
 }

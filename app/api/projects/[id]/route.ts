@@ -46,8 +46,35 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Invalid project ID" }, { status: 400 })
     }
     const body = await request.json()
-    const { name, description, status, github_repo, discord_channel, funding_amount, funding_currency, funding_details, start_date, end_date, duration } =
-      body
+    const {
+      name,
+      description,
+      status,
+      github_repo,
+      discord_channel,
+      funding_amount,
+      funding_currency,
+      funding_details,
+      start_date,
+      end_date,
+      duration,
+      creator_username,
+      grantee_email,
+      mission_expertise,
+      campaign_goals,
+      website_links,
+      program_type,
+      category,
+      creator_stat_1_name,
+      creator_stat_1_number,
+      creator_stat_2_name,
+      creator_stat_2_number,
+      youtube_link,
+      tiktok_link,
+      twitter_link,
+      twitch_link,
+      proposal_link,
+    } = body
 
     const safeFundingDetails = Array.isArray(funding_details) ? JSON.stringify(funding_details) : null
 
@@ -61,12 +88,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const [project] = (await sql`
       UPDATE projects 
-      SET name = ${name}, description = ${description}, status = ${status}, 
-          github_repo = ${github_repo}, discord_channel = ${discord_channel}, 
-          funding_amount = ${funding_amount}, funding_currency = ${funding_currency},
+      SET name = COALESCE(${name}, name), 
+          description = COALESCE(${description}, description), 
+          status = COALESCE(${status}, status), 
+          github_repo = COALESCE(${github_repo}, github_repo), 
+          discord_channel = COALESCE(${discord_channel}, discord_channel), 
+          funding_amount = COALESCE(${funding_amount}, funding_amount), 
+          funding_currency = COALESCE(${funding_currency}, funding_currency),
           funding_details = COALESCE(${safeFundingDetails}::jsonb, funding_details),
-          start_date = ${start_date}, 
-          end_date = ${calculatedEndDate}, duration = ${duration}, updated_at = NOW()
+          start_date = COALESCE(${start_date}, start_date), 
+          end_date = COALESCE(${calculatedEndDate}, end_date), 
+          duration = COALESCE(${duration}, duration),
+          creator_username = COALESCE(${creator_username}, creator_username),
+          grantee_email = COALESCE(${grantee_email}, grantee_email),
+          mission_expertise = COALESCE(${mission_expertise}, mission_expertise),
+          campaign_goals = COALESCE(${campaign_goals}, campaign_goals),
+          website_links = COALESCE(${website_links}, website_links),
+          program_type = COALESCE(${program_type}, program_type),
+          category = COALESCE(${category}, category),
+          creator_stat_1_name = COALESCE(${creator_stat_1_name}, creator_stat_1_name),
+          creator_stat_1_number = COALESCE(${creator_stat_1_number}, creator_stat_1_number),
+          creator_stat_2_name = COALESCE(${creator_stat_2_name}, creator_stat_2_name),
+          creator_stat_2_number = COALESCE(${creator_stat_2_number}, creator_stat_2_number),
+          youtube_link = COALESCE(${youtube_link}, youtube_link),
+          tiktok_link = COALESCE(${tiktok_link}, tiktok_link),
+          twitter_link = COALESCE(${twitter_link}, twitter_link),
+          twitch_link = COALESCE(${twitch_link}, twitch_link),
+          proposal_link = COALESCE(${proposal_link}, proposal_link),
+          updated_at = NOW()
       WHERE id = ${projectId}
       RETURNING *
     `) as Project[]

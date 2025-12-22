@@ -469,7 +469,7 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
               </Card>
 
               {/* Stats */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <Card
                   className="bg-card/80 backdrop-blur-sm border-border/50"
                   style={{ borderRadius: "var(--wui-border-radius-m)" }}
@@ -481,6 +481,24 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                         ? formatFundingDetails(project.funding_details, project.funding_amount, project.funding_currency || "USD")
                         : "TBD"}
                     </p>
+                  </CardContent>
+                </Card>
+                <Card
+                  className="bg-card/80 backdrop-blur-sm border-border/50"
+                  style={{ borderRadius: "var(--wui-border-radius-m)" }}
+                >
+                  <CardContent className="p-4 text-center">
+                    <h3 className="text-sm text-muted-foreground mb-1">Duration</h3>
+                    <p className="text-lg md:text-xl font-bold text-white">{project.duration || "N/A"}</p>
+                  </CardContent>
+                </Card>
+                <Card
+                  className="bg-card/80 backdrop-blur-sm border-border/50"
+                  style={{ borderRadius: "var(--wui-border-radius-m)" }}
+                >
+                  <CardContent className="p-4 text-center">
+                    <h3 className="text-sm text-muted-foreground mb-1">Program Type</h3>
+                    <p className="text-lg md:text-xl font-bold text-white capitalize">{project.program_type || "N/A"}</p>
                   </CardContent>
                 </Card>
                 <Card
@@ -756,6 +774,39 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                 </Card>
               </div>
 
+              {/* Project Team */}
+              {(project.creator_username || project.grantee_email) && (
+                <Card
+                  className="bg-card/80 backdrop-blur-sm border-border/50 mb-6"
+                  style={{ borderRadius: "var(--wui-border-radius-m)" }}
+                >
+                  <CardHeader>
+                    <CardTitle
+                      className="text-white text-lg md:text-xl"
+                      style={{ fontFamily: "var(--font-sf-rounded)", letterSpacing: "0.0025em", lineHeight: "145%" }}
+                    >
+                      Project Team
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {project.creator_username && (
+                        <div>
+                          <h3 className="text-sm text-muted-foreground mb-1">Creator (Discord)</h3>
+                          <p className="text-base font-semibold text-white">{project.creator_username}</p>
+                        </div>
+                      )}
+                      {project.grantee_email && (
+                        <div>
+                          <h3 className="text-sm text-muted-foreground mb-1">Grantee Email</h3>
+                          <p className="text-base font-semibold text-white">{project.grantee_email}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Creator Statistics */}
               {(project.creator_stat_1_name || project.creator_stat_2_name) && (
                 <Card
@@ -790,7 +841,7 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                       )}
                     </div>
 
-                    {(project.youtube_link || project.tiktok_link || project.twitter_link || project.twitch_link) && (
+                    {(project.youtube_link || project.tiktok_link || project.twitter_link || project.twitch_link || project.website_links) && (
                       <div>
                         <h3
                           className="text-white mb-3 text-lg md:text-xl"
@@ -800,9 +851,21 @@ export default function IndividualProjectContent({ id: propId }: { id?: string }
                             lineHeight: "145%",
                           }}
                         >
-                          Platform Links
+                          Platform & Website Links
                         </h3>
                         <div className="flex flex-wrap gap-2 md:grid md:grid-cols-2 md:gap-2">
+                          {project.website_links && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-border text-muted-foreground hover:bg-[#10c0dd] hover:text-white hover:border-[#10c0dd] bg-transparent transition-colors flex-shrink-0 px-2 md:px-4 col-span-2"
+                              onClick={() => window.open(project.website_links!.startsWith('http') ? project.website_links : `https://${project.website_links}`, "_blank")}
+                            >
+                              <FileText className="w-4 h-4 md:mr-2" />
+                              <span className="hidden md:inline">Website: {project.website_links}</span>
+                              <span className="md:hidden">Website</span>
+                            </Button>
+                          )}
                           {project.youtube_link && (
                             <Button
                               variant="outline"

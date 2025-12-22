@@ -109,7 +109,7 @@ export const ProjectTable = React.memo(function ProjectTable({
                 <TableRow
                   key={project.id}
                   className="border-border hover:bg-card/50 transition-colors duration-300 cursor-pointer"
-                  onClick={() => router.push(`/admin/projects/${project.id}`)}
+                  onClick={() => router.push(`/projects/${project.id}`)}
                 >
                   <TableCell className="font-medium text-white hover:underline max-w-[200px]">
                     <div className="line-clamp-2" title={project.name}>
